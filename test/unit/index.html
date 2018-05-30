@@ -12,40 +12,41 @@
     <script src="../../node_modules/chai/chai.js"></script>
     <script src="../../node_modules/requirejs/require.js"></script>
     <script>
-      mocha.setup({
-        ui: "bdd",
-        reporter: "html"
-      });
+      mocha.setup({ ui: "bdd" });
 
       require.config({
         baseUrl: '/',
         paths: {
           specs: "test/unit/specs",
           fixtures: "test/unit/fixtures",
-          d3: "lib/d3/d3"
+          d3: "node_modules/d3/d3",
+          builder: "src/modules/builder",
+          functor: "src/modules/functor",
+          valuator: "src/modules/valuator"
         }
       });
 
       <!-- Tests -->
       require([
-        "specs/modules/chart/line",
         "specs/modules/element/circle",
         "specs/modules/element/rect",
         "specs/modules/element/ellipse",
         "specs/modules/element/image",
         "specs/modules/element/line",
-        "specs/modules/element/clipPath",
         "specs/modules/element/path",
-        "specs/modules/helpers/deep_copy",
+        "specs/modules/element/text",
         "specs/modules/helpers/add_event_listener",
         "specs/modules/helpers/remove_event_listener",
-        "specs/modules/helpers/map_domain",
-        "specs/modules/helpers/scale_value",
+        "specs/modules/helpers/timeparser",
+        "specs/modules/helpers/scaletor",
         "specs/modules/layout/base",
         "specs/modules/layout/grid",
         "specs/modules/component/events",
+        "specs/modules/component/clippath",
         "specs/modules/component/brush",
         "specs/modules/component/axis",
+        "specs/modules/functor",
+        "specs/modules/valuator"
       ], function () {
         mocha.run();
       });

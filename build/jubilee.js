@@ -442,7 +442,10 @@ require.config({
   baseUrl: "/",
   paths: {
     jubilee: "src/index",
-    d3: "build/d3"
+    d3: "node_modules/d3/d3",
+    functor: "src/modules/functor",
+    builder: "src/modules/builder",
+    valuator: "src/modules/valuator"
   },
   shim: {},
   packages: []
@@ -452,7 +455,7 @@ define("src/require.config", function(){});
 
 !function() {
   var d3 = {
-    version: "3.5.5"
+    version: "3.5.6"
   };
   var d3_arraySlice = [].slice, d3_array = function(list) {
     return d3_arraySlice.call(list);
@@ -1915,8 +1918,7 @@ define("src/require.config", function(){});
     function zoomended(dispatch) {
       if (!--zooming) dispatch({
         type: "zoomend"
-      });
-      center0 = null;
+      }), center0 = null;
     }
     function mousedowned() {
       var that = this, target = d3.event.target, dispatch = event.of(that, arguments), dragged = 0, subject = d3.select(d3_window(that)).on(mousemove, moved).on(mouseup, ended), location0 = location(d3.mouse(that)), dragRestore = d3_event_dragSuppress(that);
@@ -2005,8 +2007,8 @@ define("src/require.config", function(){});
     }
     function mousewheeled() {
       var dispatch = event.of(this, arguments);
-      if (mousewheelTimer) clearTimeout(mousewheelTimer); else translate0 = location(center0 = center || d3.mouse(this)), 
-      d3_selection_interrupt.call(this), zoomstarted(dispatch);
+      if (mousewheelTimer) clearTimeout(mousewheelTimer); else d3_selection_interrupt.call(this), 
+      translate0 = location(center0 = center || d3.mouse(this)), zoomstarted(dispatch);
       mousewheelTimer = setTimeout(function() {
         mousewheelTimer = null;
         zoomended(dispatch);
@@ -2151,8 +2153,9 @@ define("src/require.config", function(){});
     return v < 16 ? "0" + Math.max(0, v).toString(16) : Math.min(255, v).toString(16);
   }
   function d3_rgb_parse(format, rgb, hsl) {
+    format = format.toLowerCase();
     var r = 0, g = 0, b = 0, m1, m2, color;
-    m1 = /([a-z]+)\((.*)\)/i.exec(format);
+    m1 = /([a-z]+)\((.*)\)/.exec(format);
     if (m1) {
       m2 = m1[2].split(",");
       switch (m1[1]) {
@@ -2167,7 +2170,7 @@ define("src/require.config", function(){});
         }
       }
     }
-    if (color = d3_rgb_names.get(format.toLowerCase())) {
+    if (color = d3_rgb_names.get(format)) {
       return rgb(color.r, color.g, color.b);
     }
     if (format != null && format.charAt(0) === "#" && !isNaN(color = parseInt(format.slice(1), 16))) {
@@ -6237,7 +6240,7 @@ define("src/require.config", function(){});
   }
   d3.interpolators = [ function(a, b) {
     var t = typeof b;
-    return (t === "string" ? d3_rgb_names.has(b) || /^(#|rgb\(|hsl\()/.test(b) ? d3_interpolateRgb : d3_interpolateString : b instanceof d3_color ? d3_interpolateRgb : Array.isArray(b) ? d3_interpolateArray : t === "object" && isNaN(b) ? d3_interpolateObject : d3_interpolateNumber)(a, b);
+    return (t === "string" ? d3_rgb_names.has(b.toLowerCase()) || /^(#|rgb\(|hsl\()/i.test(b) ? d3_interpolateRgb : d3_interpolateString : b instanceof d3_color ? d3_interpolateRgb : Array.isArray(b) ? d3_interpolateArray : t === "object" && isNaN(b) ? d3_interpolateObject : d3_interpolateNumber)(a, b);
   } ];
   d3.interpolateArray = d3_interpolateArray;
   function d3_interpolateArray(a, b) {
@@ -9953,1902 +9956,12 @@ define("src/require.config", function(){});
   });
   if (typeof define === "function" && define.amd) define('d3',d3); else if (typeof module === "object" && module.exports) module.exports = d3;
   this.d3 = d3;
-}();;d3.geo.tile = function() {
-  var size = [960, 500],
-      scale = 256,
-      translate = [size[0] / 2, size[1] / 2],
-      zoomDelta = 0;
-
-  function tile() {
-    var z = Math.max(Math.log(scale) / Math.LN2 - 8, 0),
-        z0 = Math.round(z + zoomDelta),
-        k = Math.pow(2, z - z0 + 8),
-        origin = [(translate[0] - scale / 2) / k, (translate[1] - scale / 2) / k],
-        tiles = [],
-        cols = d3.range(Math.max(0, Math.floor(-origin[0])), Math.max(0, Math.ceil(size[0] / k - origin[0]))),
-        rows = d3.range(Math.max(0, Math.floor(-origin[1])), Math.max(0, Math.ceil(size[1] / k - origin[1])));
-
-    rows.forEach(function(y) {
-      cols.forEach(function(x) {
-        tiles.push([x, y, z0]);
-      });
-    });
-
-    tiles.translate = origin;
-    tiles.scale = k;
-
-    return tiles;
-  }
-
-  tile.size = function(_) {
-    if (!arguments.length) return size;
-    size = _;
-    return tile;
-  };
-
-  tile.scale = function(_) {
-    if (!arguments.length) return scale;
-    scale = _;
-    return tile;
-  };
-
-  tile.translate = function(_) {
-    if (!arguments.length) return translate;
-    translate = _;
-    return tile;
-  };
-
-  tile.zoomDelta = function(_) {
-    if (!arguments.length) return zoomDelta;
-    zoomDelta = +_;
-    return tile;
-  };
-
-  return tile;
-};
-
-define('src/modules/helpers/add_event_listener',[],function () {
-  return function (listeners, chart) {
-    return function (event, listener) {
-      if (arguments.length === 1 && listeners[event]) {
-        return listeners[event];
-      }
-      if (arguments.length === 2 && typeof listener === "function") {
-        if (!listeners[event]) { listeners[event] = []; }
-        listeners[event].push(listener);
-      }
-      return chart;
-    };
-  };
-});
-define('src/modules/component/axis',['require','d3'],function (require) {
-  var d3 = require("d3");
-
-  return function axes() {
-    var scale = d3.scale.linear();
-    var orient = "bottom";
-    var tick = {
-      number: 10,
-      values: null,
-      size: 6,
-      innerTickSize: 6,
-      outerTickSize: 6,
-      padding: 3,
-      format: null,
-      rotate: 0,
-      text: {
-        anchor: "middle",
-        x: 0,
-        y: 9,
-        dx: "",
-        dy: ".71em"
-      }
-    };
-
-    var transform = "translate(0,0)";
-    var gClass = "axis";
-
-    var title = {
-      titleClass: "axis title",
-      x: 6,
-      y: 6,
-      dx: "",
-      dy: ".71em",
-      anchor: "end",
-      transform: "translate(0,0)",
-      text: ""
-    };
-
-    function component(selection) {
-      selection.each(function () {
-        var axis = d3.svg.axis()
-          .scale(scale)
-          .orient(orient)
-          .ticks(tick.number)
-          .tickValues(tick.values)
-          .tickSize(tick.size)
-          .innerTickSize(tick.innerTickSize)
-          .outerTickSize(tick.outerTickSize)
-          .tickPadding(tick.padding)
-          .tickFormat(tick.format);
-
-        var g = d3.select(this).append("g")
-          .attr("class", gClass)
-          .attr("transform", transform)
-          .call(axis);
-
-        g.selectAll(".tick text")
-          .attr("transform", "rotate(" + tick.rotate + ")")
-          .attr("x", tick.text.x)
-          .attr("y", tick.text.y)
-          .attr("dx", tick.text.dx)
-          .attr("dy", tick.text.dy)
-          .style("text-anchor", tick.text.anchor);
-
-        g.append("text")
-          .attr("class", title.titleClass)
-          .attr("x", title.x)
-          .attr("y", title.y)
-          .attr("dx", title.dx)
-          .attr("dy", title.dy)
-          .attr("transform", title.transform)
-          .style("title-anchor", title.anchor)
-          .text(title.text);
-      });
-    }
-
-    component.scale = function (_) {
-      if (!arguments.length) { return scale; }
-      scale = _;
-      return component;
-    };
-
-    component.orient = function (_) {
-      if (!arguments.length) { return orient; }
-      orient = _;
-      return component;
-    };
-
-    component.tick = function (_) {
-      if (!arguments.length) { return tick; }
-      tick.number = typeof _.number !== "undefined" ? _.number : tick.number;
-      tick.values = typeof _.values !== "undefined" ? _.values : tick.values;
-      tick.size = typeof _.size !== "undefined" ? _.size : tick.size;
-      tick.padding = typeof _.padding !== "undefined" ? _.padding : tick.padding;
-      tick.format = typeof _.format !== "undefined" ? _.format : tick.format;
-      tick.rotate = typeof _.rotate !== "undefined" ? _.rotate : tick.rotate;
-      tick.innerTickSize = typeof _.innerTickSize !== "undefined" ? _.innerTickSize : tick.innerTickSize;
-      tick.outerTickSize = typeof _.outerTickSize !== "undefined" ? _.outerTickSize : tick.outerTickSize;
-      tick.text.anchor = typeof _.text.anchor !== "undefined" ? _.text.anchor : tick.text.anchor;
-      tick.text.x = typeof _.text.x !== "undefined" ? _.text.x : tick.text.x;
-      tick.text.y = typeof _.text.y !== "undefined" ? _.text.y : tick.text.y;
-      tick.text.dx = typeof _.text.dx !== "undefined" ? _.text.dx : tick.text.dx;
-      tick.text.dy = typeof _.text.dy !== "undefined" ? _.text.dy : tick.text.dy;
-      return component;
-    };
-
-    component.gClass = function (_) {
-      if (!arguments.length) { return gClass; }
-      gClass = _;
-      return component;
-    };
-
-    component.transform = function (_) {
-      if (!arguments.length) { return transform; }
-      transform = _;
-      return component;
-    };
-
-    component.title = function (_) {
-      if (!arguments.length) { return title; }
-      title.titleClass = typeof _.titleClass !== "undefined" ? _.titleClass : title.titleClass;
-      title.x = typeof _.x !== "undefined" ? _.x : title.x;
-      title.y = typeof _.y !== "undefined" ? _.y : title.y;
-      title.dx = typeof _.dx !== "undefined" ? _.dx : title.dx;
-      title.dy = typeof _.dy !== "undefined" ? _.dy : title.dy;
-      title.transform = typeof _.transform !== "undefined" ? _.transform : title.transform;
-      title.anchor = typeof _.anchor !== "undefined" ? _.anchor : title.anchor;
-      title.text = typeof _.text !== "undefined" ? _.text : title.text;
-      return component;
-    };
-
-    return component;
-  };
-});
-
-define('src/modules/component/brush',['require','d3'],function (require) {
-  var d3 = require("d3");
-
-  return function brush() {
-    // Private variables
-    var cssClass = "brush";
-    var margin = { top: 0, right: 0, bottom: 0, left: 0 };
-    var width = null;
-    var height = null;
-    var opacity = 0.2;
-
-    var xScale = null;
-    var yScale = null;
-    var extent = null;
-    var clamp = null;
-
-    var brushStartCallback = [];
-    var brushCallback = [];
-    var brushEndCallback = [];
-
-    function component(selection) {
-      selection.each(function (data, index) {
-        width = width - margin.left - margin.right;
-        height = height - margin.top - margin.bottom;
-
-        var brush = d3.svg.brush()
-          .on("brushstart", function () {
-            brushStartCallback.forEach(function (listener) {
-              listener.call(this, brush, data);
-            });
-          })
-          .on("brush", function () {
-            brushCallback.forEach(function (listener) {
-              listener.call(this, brush, data);
-            });
-          })
-          .on("brushend", function () {
-            brushEndCallback.forEach(function (listener) {
-              listener.call(this, brush, data);
-              d3.selectAll("g.brush").call(brush.clear());
-            });
-          });
-
-        var svg = d3.select(this);
-
-        if (xScale) { brush.x(xScale); }
-        if (yScale) { brush.y(yScale); }
-        if (extent) { brush.extent(extent); }
-        if (clamp) { brush.clamp(clamp); }
-
-        var brushG = svg.append("g")
-          .attr("class", cssClass)
-          .attr("opacity", opacity)
-          .call(brush)
-          .selectAll("rect");
-
-        if (width) { brushG.attr("width", width); }
-        if (height) { brushG.attr("height", height); }
-      });
-    }
-
-    // Public API
-    component.margin = function (_) {
-      if (!arguments.length) { return margin; }
-      margin.top = typeof _.top !== "undefined" ? _.top : margin.top;
-      margin.right = typeof _.right !== "undefined" ? _.right : margin.right;
-      margin.bottom = typeof _.bottom !== "undefined" ? _.bottom : margin.bottom;
-      margin.left = typeof _.left !== "undefined" ? _.left : margin.left;
-      return component;
-    };
-
-    component.width = function (_) {
-      if (!arguments.length) { return width; }
-      width = _;
-      return component;
-    };
-
-    component.height = function (_) {
-      if (!arguments.length) { return height; }
-      height = _;
-      return component;
-    };
-
-    component.opacity = function (_) {
-      if (!arguments.length) { return opacity; }
-      opacity = _;
-      return component;
-    };
-
-    component.xScale = function (_) {
-      if (!arguments.length) { return xScale; }
-      xScale = _;
-      return component;
-    };
-
-    component.yScale = function (_) {
-      if (!arguments.length) { return yScale; }
-      yScale = _;
-      return component;
-    };
-
-    component.extent = function (_) {
-      if (!arguments.length) { return extent; }
-      extent = _;
-      return component;
-    };
-
-    component.clamp = function (_) {
-      if (!arguments.length) { return clamp; }
-      clamp = _;
-      return component;
-    };
-
-    component.brushstart = function (_) {
-      if (!arguments.length) { return brushStartCallback; }
-      if (typeof _ === "function") { brushStartCallback.push(_); }
-      brushStartCallback = _;
-      return component;
-    };
-
-    component.brush = function (_) {
-      if (!arguments.length) { return brushCallback; }
-      if (typeof _ === "function") { brushCallback.push(_); }
-      brushCallback = _;
-      return component;
-    };
-
-    component.brushend = function (_) {
-      if (!arguments.length) { return brushEndCallback; }
-      if (typeof _ === "function") { brushEndCallback.push(_); }
-      brushEndCallback = _;
-      return component;
-    };
-
-    return component;
-  };
-});
-define('src/modules/element/svg/clipPath',['require','d3'],function (require) {
-  var d3 = require("d3");
-
-  return function clipPath() {
-    var id = uniqueID();
-    var transform = "translate(0,0)";
-    var x = 0;
-    var y = 0;
-    var width = 0;
-    var height = 0;
-
-    function element(selection) {
-      selection.each(function (data, index) {
-        var clipPath = d3.select(this)
-          .append("clipPath");
-
-        // Update
-        clipPath
-          .attr("id", id)
-          .attr("transform", transform)
-          .append("rect")
-          .attr("x", x)
-          .attr("y", y)
-          .attr("width", width)
-          .attr("height", height);
-      });
-    }
-
-    function uniqueID() {
-      var randomNumber = Math.floor(Math.random() * 100);
-      return "uniqueId_" + randomNumber;
-    }
-
-    element.id = function (_) {
-      if (!arguments.length) { return id; }
-      id = _;
-      return element;
-    };
-
-    element.transform = function (_) {
-      if (!arguments.length) { return transform; }
-      transform = _;
-      return element;
-    };
-
-    element.x = function (_) {
-      if (!arguments.length) { return x; }
-      x = _;
-      return element;
-    };
-
-    element.y = function (_) {
-      if (!arguments.length) { return y; }
-      y = _;
-      return element;
-    };
-
-    element.width = function (_) {
-      if (!arguments.length) { return width; }
-      width = _;
-      return element;
-    };
-
-    element.height = function (_) {
-      if (!arguments.length) { return height; }
-      height = _;
-      return element;
-    };
-
-    return element;
-  };
-});
-
-define('src/modules/helpers/deep_copy',[],function () {
-  return function deepCopy(parent, child) {
-    child = child || {};
-
-    for (var i in parent) {
-      if (parent.hasOwnProperty(i)) {
-        if (typeof parent[i] === "object" && parent[i] !== null) {
-          child[i] = (parent[i].constructor === Array) ? [] : {};
-          deepCopy(parent[i], child[i]);
-        } else {
-          child[i] = parent[i];
-        }
-      }
-    }
-
-    return child;
-  };
-});
-define('src/modules/helpers/map_domain',[],function () {
-  return function (data) {
-    return data.reduce(function (a, b) {
-      return a.concat(b);
-    });
-  };
-});
-
-define('src/modules/component/events',['require','d3'],function (require) {
-  var d3 = require("d3");
-
-  return function events() {
-    var listeners = {};
-
-    function component(selection) {
-      selection.each(function (data, index) {
-        var element = d3.select(this);
-
-        Object.keys(listeners).forEach(function (event) {
-          if (!listeners[event] || !listeners[event].length) {
-            return element.on(event, null);
-          }
-
-          element.on(event, function (d, i) {
-            d3.event.stopPropagation();
-            listeners[event].forEach(function (listener) {
-              listener.call(this, d3.event, d, i);
-            });
-          });
-        });
-      });
-    }
-
-    // Public API
-    component.listeners = function (_) {
-      if (!arguments.length) { return listeners; }
-      listeners = _;
-      return component;
-    };
-
-    return component;
-  };
-});
-define('src/modules/element/svg/path',['require','d3','src/modules/component/events'],function (require) {
-  var d3 = require("d3");
-  var events = require("src/modules/component/events");
-
-  return function path() {
-    var pathGenerator = null;
-    var color = d3.scale.category10();
-    var accessor = function (d) { return d; };
-    var values = null;
-
-    // Options
-    var cssClass = "path";
-    var transform = "translate(0,0)";
-    var fill = "none";
-    var stroke = function (d, i) { return color(i); };
-    var strokeWidth = 1;
-    var opacity = null;
-    var listeners = {};
-
-    function element(selection) {
-      selection.each(function (data, index) {
-        var pathEvents = events().listeners(listeners);
-
-        var path = d3.select(this).selectAll("paths")
-          .data(values ? values.map(accessor) : accessor);
-
-        path.exit().remove();
-
-        path.enter().append("path");
-
-        path
-          .attr("transform", transform)
-          .attr("class", cssClass)
-          .attr("fill", fill)
-          .attr("stroke", stroke)
-          .attr("stroke-width", strokeWidth)
-          .attr("d", pathGenerator)
-          .style("opacity", opacity);
-
-        path.call(pathEvents);
-      });
-    }
-
-    // Public API
-    element.data = function (_) {
-      if (!arguments.length) { return values; }
-      values = _;
-      return element;
-    };
-
-    element.pathGenerator = function (_) {
-      if (!arguments.length) { return pathGenerator; }
-      pathGenerator = _;
-      return element;
-    };
-
-    element.accessor = function (_) {
-      if (!arguments.length) { return accessor; }
-      accessor = _;
-      return element;
-    };
-
-    element.color = function (_) {
-      if (!arguments.length) { return color; }
-      color = _;
-      return element;
-    };
-
-    element.cssClass = function (_) {
-      if (!arguments.length) { return cssClass; }
-      cssClass = _;
-      return element;
-    };
-
-    element.transform = function (_) {
-      if (!arguments.length) { return transform; }
-      transform = _;
-      return element;
-    };
-
-    element.fill = function (_) {
-      if (!arguments.length) { return fill; }
-      fill = _;
-      return element;
-    };
-
-    element.opacity = function (_) {
-      if (!arguments.length) { return opacity; }
-      opacity = _;
-      return element;
-    };
-
-    element.stroke = function (_) {
-      if (!arguments.length) { return stroke; }
-      stroke = _;
-      return element;
-    };
-
-    element.strokeWidth = function (_) {
-      if (!arguments.length) { return strokeWidth; }
-      strokeWidth = _;
-      return element;
-    };
-
-    element.listeners = function (_) {
-      if (!arguments.length) { return listeners; }
-      listeners = _;
-      return element;
-    };
-
-    return element;
-  };
-});
-
-define('src/modules/helpers/scale_value',[],function () {
-  return function (scale, func) {
-    return function (d, i) {
-      return scale(func.call(null, d, i));
-    };
-  };
-});
-define('src/modules/helpers/remove_event_listener',[],function () {
-  return function (listeners, chart) {
-    return function (event, listener) {
-      if (arguments.length === 1 && listeners[event]) {
-        listeners[event] = null;
-      }
-      if (arguments.length === 2 && typeof listener === "function") {
-        if (!listeners[event]) { return; }
-
-        listeners[event] = listeners[event].filter(function (handler) {
-          return handler !== listener;
-        });
-      }
-
-      return chart;
-    };
-  };
-});
-define('src/modules/element/svg/line',['require','d3','src/modules/component/events'],function (require) {
-  var d3 = require("d3");
-  var events = require("src/modules/component/events");
-
-  return function line() {
-    var x1 = null;
-    var x2 = null;
-    var y1 = null;
-    var y2 = null;
-    var color = d3.scale.category10();
-    var values = null;
-
-    var cssClass = "line";
-    var stroke = null;
-    var strokeWidth = 2;
-    var opacity = null;
-    var listeners = {};
-
-    function element(selection) {
-      selection.each(function (data, index) {
-        var lineEvents = events().listeners(listeners);
-
-        var lines = d3.select(this).selectAll("lines")
-          .data(values ? values : data);
-
-        // Exit
-        lines.exit().remove();
-
-        // Enter
-        lines.enter().append("line");
-
-        // Update
-        lines
-          .attr("class", cssClass)
-          .attr("x1", x1)
-          .attr("x2", x2)
-          .attr("y1", y1)
-          .attr("y2", y2)
-          .attr("stroke", stroke ? stroke : colorFill)
-          .attr("stroke-width", strokeWidth)
-          .style("opacity", opacity);
-
-        lines.call(lineEvents);
-      });
-    }
-
-    function colorFill(d, i) {
-      return color(i);
-    }
-
-    // Public API
-    element.data = function (_) {
-      if (!arguments.length) { return values; }
-      values = _;
-      return element;
-    };
-    
-    element.x1 = function (_) {
-      if (!arguments.length) { return x1; }
-      x1 = _;
-      return element;
-    };
-
-    element.x2 = function (_) {
-      if (!arguments.length) { return x2; }
-      x2 = _;
-      return element;
-    };
-
-    element.y1 = function (_) {
-      if (!arguments.length) { return y1; }
-      y1 = _;
-      return element;
-    };
-
-    element.y2 = function (_) {
-      if (!arguments.length) { return y2; }
-      y2 = _;
-      return element;
-    };
-
-    element.color = function (_) {
-      if (!arguments.length) { return color; }
-      color = _;
-      return element;
-    };
-
-    element.cssClass = function (_) {
-      if (!arguments.length) { return cssClass; }
-      cssClass = _;
-      return element;
-    };
-
-    element.opacity = function (_) {
-      if (!arguments.length) { return opacity; }
-      opacity = _;
-      return element;
-    };
-
-    element.stroke = function (_) {
-      if (!arguments.length) { return stroke; }
-      stroke = _;
-      return element;
-    };
-
-    element.strokeWidth = function (_) {
-      if (!arguments.length) { return strokeWidth; }
-      strokeWidth = _;
-      return element;
-    };
-
-    element.listeners = function (_) {
-      if (!arguments.length) { return listeners; }
-      listeners = _;
-      return element;
-    };
-
-    return element;
-  };
-});
-define('src/modules/helpers/options/clippath',[],function () {
-  return {
-    width: null,
-    height: null
-  };
-});
-define('src/modules/helpers/options/margin',[],function () {
-  return {
-    top: 20,
-    right: 20,
-    bottom: 20,
-    left: 50
-  };
-});
-define('src/modules/helpers/options/scale',[],function () {
-  return {
-    scale: null,
-    domain: null,
-    nice: false,
-    clamp: false
-  };
-});
-define('src/modules/helpers/options/stack',[],function () {
-  return {
-    offset: "zero",
-    order: "default",
-    out: function (d, y0, y) {
-      d.y0 = y0;
-      d.y = y;
-    }
-  };
-});
-
-define('src/modules/helpers/options/x_axis',[],function () {
-  return {
-    show: true,
-    gClass: "x axis",
-    tick: {
-      number: 10,
-      values: null,
-      size: 6,
-      padding: 3,
-      format: null,
-      rotate: 0,
-      innerTickSize: 6,
-      outerTickSize: 6,
-      text: {
-        anchor: "middle",
-        x: 0,
-        y: 9,
-        dx: "",
-        dy: ".71em"
-      }
-    },
-    title: {
-      titleClass: "axis title",
-      x: 6,
-      y: 6,
-      dx: "",
-      dy: ".71em",
-      anchor: "middle",
-      text: ""
-    }
-  };
-});
-define('src/modules/helpers/options/y_axis',[],function () {
-  return {
-    show: true,
-    gClass: "y axis",
-    tick: {
-      number: 10,
-      values: null,
-      size: 6,
-      padding: 3,
-      format: null,
-      rotate: 0,
-      innerTickSize: 6,
-      outerTickSize: 6,
-      text: {
-        anchor: "end",
-        x: -9,
-        y: 0,
-        dx: "",
-        dy: ".32em"
-      }
-    },
-    title: {
-      titleClass: "axis title",
-      x: 0,
-      y: -40,
-      dx: "",
-      dy: ".71em",
-      anchor: "middle",
-      rotate: 270,
-      text: ""
-    }
-  };
-});
-define('src/modules/helpers/options/zero_line',[],function () {
-  return {
-    add: true,
-    lineClass: "zero-line",
-    stroke: "black",
-    strokeWidth: 1,
-    opacity: 0.5
-  };
-});
-define('src/modules/helpers/api/axis',[],function () {
-  return function (_, axis) {
-    axis.show = typeof _.show !== "undefined" ? _.show : axis.show;
-    axis.gClass = typeof _.gClass !== "undefined" ? _.gClass : axis.gClass;
-    axis.transform = typeof _.transform !== "undefined" ? _.transform : axis.transform;
-
-    axis.tick = typeof _.tick !== "undefined" ? _.tick : {};
-    axis.tick.number = _.tick && typeof _.tick.number !== "undefined" ? _.tick.number : axis.tick.number;
-    axis.tick.values = _.tick && typeof _.tick.values !== "undefined" ? _.tick.values : axis.tick.values;
-    axis.tick.size = _.tick && typeof _.tick.size !== "undefined" ? _.tick.size : axis.tick.size;
-    axis.tick.padding = _.tick && typeof _.tick.padding !== "undefined" ? _.tick.padding : axis.tick.padding;
-    axis.tick.format = _.tick && typeof _.tick.format !== "undefined" ? _.tick.format : axis.tick.format;
-    axis.tick.rotate = _.tick && typeof _.tick.rotate !== "undefined" ? _.tick.rotate : axis.tick.rotate;
-    axis.tick.innerTickSize = _.tick && typeof _.tick.innerTickSize !== "undefined" ?
-      _.tick.innerTickSize : axis.tick.innerTickSize;
-    axis.tick.outerTickSize = _.tick && typeof _.tick.outerTickSize !== "undefined" ?
-      _.tick.outerTickSize : axis.tick.outerTickSize;
-
-    axis.tick.text = _.tick && typeof _.tick.text !== "undefined" ? _.tick.text : {};
-    axis.tick.text.anchor = _.tick && _.tick.text && typeof _.tick.text.anchor !== "undefined" ?
-      _.tick.text.anchor : axis.tick.text.anchor;
-    axis.tick.text.x = _.tick && _.tick.text && typeof _.tick.text.x !== "undefined" ?
-      _.tick.text.x : axis.tick.text.x;
-    axis.tick.text.y = _.tick && _.tick.text && typeof _.tick.text.y !== "undefined" ?
-      _.tick.text.y : axis.tick.text.y;
-    axis.tick.text.dx = _.tick && _.tick.text && typeof _.tick.text.dx !== "undefined" ?
-      _.tick.text.dx : axis.tick.text.dx;
-    axis.tick.text.dy = _.tick && _.tick.text && typeof _.tick.text.dy !== "undefined" ?
-      _.tick.text.dy : axis.tick.text.dy;
-
-    axis.title = typeof _.title !== "undefined" ? _.title : {};
-    axis.title.titleClass = _.title && typeof _.title.titleClass !== "undefined" ?
-      _.title.titleClass : axis.title.titleClass;
-    axis.title.x = _.title && typeof _.title.x !== "undefined" ? _.title.x : axis.title.x;
-    axis.title.y = _.title && typeof _.title.y !== "undefined" ? _.title.y : axis.title.y;
-    axis.title.dx = _.title && typeof _.title.dx !== "undefined" ? _.title.dx : axis.title.dx;
-    axis.title.dy = _.title && typeof _.title.dy !== "undefined" ? _.title.dy : axis.title.dy;
-    axis.title.anchor = _.title && typeof _.title.anchor !== "undefined" ? _.title.anchor : axis.title.anchor;
-    axis.title.text = _.title && typeof _.title.text !== "undefined" ? _.title.text : axis.title.text;
-
-    return axis;
-  };
-});
-
-define('src/modules/helpers/api/area',[],function () {
-  return function (_, area) {
-    area.show = typeof _.show !== "undefined" ? _.show : area.show;
-    area.areaClass = typeof _.areaClass !== "undefined" ? _.areaClass : area.areaClass;
-    area.interpolate = typeof _.interpolate !== "undefined" ? _.interpolate : area.interpolate;
-    area.tension = typeof _.tension !== "undefined" ? _.tension : area.tension;
-    area.stroke = typeof _.stroke !== "undefined" ? _.stroke : area.stroke;
-    area.strokeWidth = typeof _.stroke !== "undefined" ? _.strokeWidth : area.strokeWidth;
-    area.fill = typeof _.fill !== "undefined" ? _.fill : area.fill;
-    area.opacity = typeof _.opacity !== "undefined" ? _.opacity : area.opacity;
-
-    return area;
-  };
-});
-define('src/modules/helpers/api/lines',[],function () {
-  return function (_, lines) {
-    lines.show = typeof _.show !== "undefined" ? _.show : lines.show;
-    lines.lineClass = typeof _.lineClass !== "undefined" ? _.lineClass : lines.lineClass;
-    lines.interpolate = typeof _.interpolate !== "undefined" ? _.interpolate : lines.interpolate;
-    lines.tension = typeof _.tension !== "undefined" ? _.tension : lines.tension;
-    lines.stroke = typeof _.stroke !== "undefined" ? _.stroke : lines.stroke;
-    lines.strokeWidth = typeof _.stroke !== "undefined" ? _.strokeWidth : lines.strokeWidth;
-    lines.opacity = typeof _.opacity !== "undefined" ? _.opacity : lines.opacity;
-
-    return lines;
-  };
-});
-define('src/modules/helpers/api/margin',[],function () {
-  return function (_, margin) {
-    margin.top = typeof _.top !== "undefined" ? _.top : margin.top;
-    margin.right = typeof _.right !== "undefined" ? _.right : margin.right;
-    margin.bottom = typeof _.bottom !== "undefined" ? _.bottom : margin.bottom;
-    margin.left = typeof _.left !== "undefined" ? _.left : margin.left;
-
-    return margin;
-  };
-});
-define('src/modules/helpers/api/scale',[],function () {
-  return function (_, scale) {
-    scale.scale = typeof _.scale !== "undefined" ? _.scale : scale.scale;
-    scale.domain = typeof _.domain !== "undefined" ? _.domain : scale.domain;
-    scale.nice = typeof _.nice !== "undefined" ? _.nice : scale.nice;
-    scale.clamp = typeof _.clamp !== "undefined" ? _.clamp : scale.clamp;
-
-    return scale;
-  };
-});
-define('src/modules/helpers/api/stack',[],function () {
-  return function (_, stack) {
-    stack.offset = typeof _.offset !== "undefined" ? _.offset : stack.offset;
-    stack.order = typeof _.order !== "undefined" ? _.order : stack.order;
-    stack.out = typeof _.out !== "undefined" ? _.out : stack.out;
-
-    return stack;
-  };
-});
-define('src/modules/helpers/api/clippath',[],function () {
-  return function (_, clipPath) {
-    clipPath.width = typeof _.width !== "undefined" ? _.width : clipPath.width;
-    clipPath.height = typeof _.height !== "undefined" ? _.height : clipPath.height;
-
-    return clipPath;
-  };
-});
-define('src/modules/helpers/api/zero_line',[],function () {
-  return function (_, line) {
-    line.add = typeof _.add !== "undefined" ? _.add : line.add;
-    line.lineClass = typeof _.lineClass !== "undefined" ? _.lineClass : line.lineClass;
-    line.stroke = typeof _.stroke !== "undefined" ? _.stroke : line.stroke;
-    line.strokeWidth = typeof _.stroke !== "undefined" ? _.strokeWidth : line.strokeWidth;
-    line.opacity = typeof _.opacity !== "undefined" ? _.opacity : line.opacity;
-
-    return line;
-  };
-});
-
-define('src/modules/chart/area',['require','d3','src/modules/helpers/add_event_listener','src/modules/component/axis','src/modules/component/brush','src/modules/element/svg/clipPath','src/modules/helpers/deep_copy','src/modules/helpers/map_domain','src/modules/element/svg/path','src/modules/helpers/scale_value','src/modules/helpers/remove_event_listener','src/modules/element/svg/line','src/modules/helpers/options/clippath','src/modules/helpers/options/margin','src/modules/helpers/options/scale','src/modules/helpers/options/stack','src/modules/helpers/options/x_axis','src/modules/helpers/options/y_axis','src/modules/helpers/options/zero_line','src/modules/helpers/api/axis','src/modules/helpers/api/area','src/modules/helpers/api/lines','src/modules/helpers/api/margin','src/modules/helpers/api/scale','src/modules/helpers/api/stack','src/modules/helpers/api/clippath','src/modules/helpers/api/zero_line'],function (require) {
-  var d3 = require("d3");
-
-  var addEventListener = require("src/modules/helpers/add_event_listener");
-  var axis = require("src/modules/component/axis");
-  var brushComponent = require("src/modules/component/brush");
-  var clip = require("src/modules/element/svg/clipPath");
-  var deepCopy = require("src/modules/helpers/deep_copy");
-  var mapDomain = require("src/modules/helpers/map_domain");
-  var path = require("src/modules/element/svg/path");
-  var scaleValue = require("src/modules/helpers/scale_value");
-  var removeEventListener = require("src/modules/helpers/remove_event_listener");
-  var zeroAxisLine = require("src/modules/element/svg/line");
-
-  // Options
-  var clipPathOptions = require("src/modules/helpers/options/clippath");
-  var marginOptions = require("src/modules/helpers/options/margin");
-  var scaleOptions = require("src/modules/helpers/options/scale");
-  var stackOptions = require("src/modules/helpers/options/stack");
-  var xAxisOptions = require("src/modules/helpers/options/x_axis");
-  var yAxisOptions = require("src/modules/helpers/options/y_axis");
-  var zeroLineOptions = require("src/modules/helpers/options/zero_line");
-
-  // API
-  var axisAPI = require("src/modules/helpers/api/axis");
-  var areaAPI = require("src/modules/helpers/api/area");
-  var linesAPI = require("src/modules/helpers/api/lines");
-  var marginAPI = require("src/modules/helpers/api/margin");
-  var scaleAPI = require("src/modules/helpers/api/scale");
-  var stackAPI = require("src/modules/helpers/api/stack");
-  var clippathAPI = require("src/modules/helpers/api/clippath");
-  var zeroLineAPI = require("src/modules/helpers/api/zero_line");
-
-  return function areaChart() {
-    // Chart options
-    var margin = deepCopy(marginOptions, {});
-    var width = 760;
-    var height = 120;
-    var color = d3.scale.category20c();
-    var xValue = function (d) { return d.x; };
-    var yValue = function (d) { return d.y; };
-    var interpolate = "linear";
-    var defined = function () { return true; };
-
-    // Scale options
-    var xScaleOpts = deepCopy(scaleOptions, {});
-    var yScaleOpts = deepCopy(scaleOptions, {});
-    var xScale;
-    var yScale;
-
-    // Other options
-    var axisX = deepCopy(xAxisOptions, {});
-    var axisY = deepCopy(yAxisOptions, {});
-    var clipPath = deepCopy(clipPathOptions, {});
-    var listeners = {};
-    var stackOpts = deepCopy(stackOptions, {});
-    var zeroLine = deepCopy(zeroLineOptions, {});
-
-    // Area options
-    var areas = {
-      groupClass: "paths",
-      areaClass: "area",
-      fill: function (d, i) { return color(i); },
-      stroke: function (d, i) { return color(i); },
-      strokeWidth: 0,
-      opacity: 1
-    };
-
-    // Line options
-    var lines = {
-      show: false,
-      groupClass: "paths",
-      lineClass: "line",
-      stroke: function (d, i) { return color(i); },
-      strokeWidth: 3,
-      opacity: 1,
-      interpolate: interpolate,
-      tension:  0.7
-    };
-
-    function chart(selection) {
-      selection.each(function (data, index) {
-        width = width - margin.left - margin.right;
-        height = height - margin.top - margin.bottom;
-
-        var stack = d3.layout.stack()
-          .x(xValue)
-          .y(yValue)
-          .offset(stackOpts.offset)
-          .order(stackOpts.order)
-          .out(stackOpts.out);
-
-        var layers = stack(data);
-
-        // Scales
-        xScale = xScaleOpts.scale || d3.time.scale.utc();
-        xScale.domain(xScaleOpts.domain || d3.extent(mapDomain(layers), xValue));
-
-        if (xScale.rangeBands) {
-          xScale.rangeBands([0, width], 0.1);
-        } else {
-          xScale.range([0, width]);
-        }
-
-        yScale = yScaleOpts.scale || d3.scale.linear();
-        yScale.domain(yScaleOpts.domain || [
-            Math.min(0, d3.min(mapDomain(layers), Y)),
-            Math.max(0, d3.max(mapDomain(layers), Y))
-          ])
-          .range([height, 0]);
-
-        if (xScaleOpts.nice) { xScale.nice(); }
-        if (yScaleOpts.nice) { yScale.nice(); }
-
-        // Canvas
-        var svg = d3.select(this).selectAll("svg")
-          .data([layers])
-          .enter().append("svg")
-          .attr("width", width + margin.left + margin.right)
-          .attr("height", height + margin.top + margin.bottom);
-
-        var g = svg.append("g")
-          .attr("transform", "translate(" + margin.left + ", " + margin.top + ")");
-
-        // Brush
-        if (listeners.brush.length) {
-          var brush = brushComponent()
-            .height(height)
-            .xScale(xScale)
-            .brushend(listeners.brush);
-
-          g.call(brush);
-        }
-
-        // X axis
-        if (axisX.show) {
-          var xAxis = axis()
-            .scale(xScale)
-            .gClass(axisX.gClass)
-            .transform(axisX.transform || "translate(0," + (yScale.range()[0] + 1) + ")")
-            .tick({
-              number: axisX.tick.number,
-              values: axisX.tick.values,
-              size: axisX.tick.size,
-              padding: axisX.tick.padding,
-              format: axisX.tick.format,
-              rotate: axisX.tick.rotate,
-              innerTickSize: axisX.tick.innerTickSize,
-              outerTickSize: axisX.tick.outerTickSize,
-              text: {
-                x: axisX.tick.text.x,
-                y: axisX.tick.text.y,
-                dx: axisX.tick.text.dx,
-                dy: axisX.tick.text.dy,
-                anchor: axisX.tick.text.anchor
-              }
-            })
-            .title({
-              titleClass: axisX.title.titleClass,
-              x: width / 2,
-              y: axisX.title.y,
-              dx: axisX.title.dx,
-              dy: axisX.title.dy,
-              anchor: axisX.title.anchor,
-              text: axisX.title.text
-            });
-
-          g.call(xAxis);
-        }
-
-        // Y axis
-        if (axisY.show) {
-          var yAxis = axis()
-            .scale(yScale)
-            .orient("left")
-            .gClass(axisY.gClass)
-            .transform(axisY.transform || "translate(-1,0)")
-            .tick({
-              number: axisY.tick.number,
-              values: axisY.tick.values,
-              size: axisY.tick.size,
-              padding: axisY.tick.padding,
-              format: axisY.tick.format,
-              rotate: axisY.tick.rotate,
-              innerTickSize: axisY.tick.innerTickSize,
-              outerTickSize: axisY.tick.outerTickSize,
-              text: {
-                x: axisY.tick.text.x,
-                y: axisY.tick.text.y,
-                dx: axisY.tick.text.dx,
-                dy: axisY.tick.text.dy,
-                anchor: axisY.tick.text.anchor
-              }
-            })
-            .title({
-              titleClass: axisY.title.titleClass,
-              x: axisY.title.x,
-              y: axisY.title.y,
-              dx: axisY.title.dx,
-              dy: axisY.title.dy,
-              transform: "translate(0," + height / 2 + ")rotate(" + axisY.title.rotate + ")",
-              anchor: axisY.title.anchor,
-              text: axisY.title.text
-            });
-
-          g.call(yAxis);
-        }
-
-        // Add clippath and areas
-        var X = scaleValue(xScale, xValue);
-
-        var clippath = clip()
-          .width(clipPath.width || width)
-          .height(clipPath.height || height);
-
-        var area = d3.svg.area().x(X).y0(Y0).y1(Y1)
-          .interpolate(interpolate)
-          .defined(defined);
-
-        var areaPath = path()
-          .pathGenerator(area)
-          .cssClass(areas.areaClass)
-          .stroke(areas.stroke)
-          .strokeWidth(areas.strokeWidth)
-          .fill(areas.fill)
-          .opacity(areas.opacity)
-          .listeners(listeners);
-
-        g.call(clippath)
-          .append("g")
-          .attr("clip-path", "url(#" + clippath.id() + ")")
-          .attr("class", areas.groupClass)
-          .call(areaPath);
-
-        // Add Lines
-        if (lines.show) {
-          var line = d3.svg.line().x(X).y(Y1)
-            .interpolate(interpolate)
-            .defined(defined);
-
-          var linePath = path()
-            .pathGenerator(line)
-            .cssClass(lines.lineClass)
-            .stroke(lines.stroke)
-            .strokeWidth(lines.strokeWidth)
-            .opacity(lines.opacity);
-
-          g.append("g").call(linePath);
-        }
-
-        // Zero-line
-        if (zeroLine.add) {
-          var zLine = zeroAxisLine()
-            .cssClass(zeroLine.lineClass)
-            .x1(function () { return xScale.range()[0]; })
-            .x2(function () { return xScale.range()[1]; })
-            .y1(function () { return yScale(0); })
-            .y2(function () { return yScale(0); })
-            .stroke(zeroLine.stroke)
-            .strokeWidth(zeroLine.strokeWidth)
-            .opacity(zeroLine.opacity);
-
-          g.call(zLine);
-        }
-      });
-    }
-
-    function Y(d, i) {
-      if (stackOpts.offset === "overlap") { return d.y; }
-      return d.y0 + yValue.call(null, d, i);
-    }
-
-    function Y0(d) {
-      var min = Math.max(0, yScale.domain()[0]);
-      if (stackOpts.offset === "overlap") { return yScale(min); }
-      return yScale(d.y0);
-    }
-
-    function Y1(d, i) {
-      if (stackOpts.offset === "overlap") { return yScale(d.y); }
-      return yScale(d.y0 + yValue.call(null, d, i));
-    }
-
-    // Public API
-    chart.margin = function (_) {
-      if (!arguments.length) { return margin; }
-      margin = marginAPI(_, margin);
-      return chart;
-    };
-
-    chart.width = function (_) {
-      if (!arguments.length) { return width; }
-      width = _;
-      return chart;
-    };
-
-    chart.height = function (_) {
-      if (!arguments.length) { return height; }
-      height = _;
-      return chart;
-    };
-
-    chart.color = function (_) {
-      if (!arguments.length) { return color; }
-      color = _;
-      return chart;
-    };
-
-    chart.x = function (_) {
-      if (!arguments.length) { return xValue; }
-      xValue = _;
-      return chart;
-    };
-
-    chart.y = function (_) {
-      if (!arguments.length) { return yValue; }
-      yValue = _;
-      return chart;
-    };
-
-    chart.defined = function (_) {
-      if (!arguments.length) { return defined; }
-      defined = _;
-      return chart;
-    };
-
-    chart.interpolate = function (_) {
-      if (!arguments.length) { return interpolate; }
-      interpolate = _;
-      return chart;
-    };
-
-    chart.xScale = function (_) {
-      if (!arguments.length) { return xScaleOpts; }
-      xScaleOpts = scaleAPI(_, xScaleOpts);
-      return chart;
-    };
-
-    chart.yScale = function (_) {
-      if (!arguments.length) { return yScaleOpts; }
-      yScaleOpts = scaleAPI(_, yScaleOpts);
-      return chart;
-    };
-
-    chart.xAxis = function (_) {
-      if (!arguments.length) { return axisX; }
-      axisX = axisAPI(_, axisX);
-      return chart;
-    };
-
-    chart.yAxis = function (_) {
-      if (!arguments.length) { return axisY; }
-      axisY = axisAPI(_, axisY);
-      return chart;
-    };
-
-    chart.stack = function (_) {
-      if (!arguments.length) { return stackOpts; }
-      stackOpts = stackAPI(_, stackOpts);
-      return chart;
-    };
-
-    chart.clipPath = function (_) {
-      if (!arguments.length) { return clipPath; }
-      clipPath = clippathAPI(_, clipPath);
-      return chart;
-    };
-
-    chart.area = function (_) {
-      if (!arguments.length) { return areas; }
-      areas = areaAPI(_, areas);
-      return chart;
-    };
-
-    chart.lines = function (_) {
-      if (!arguments.length) { return lines; }
-      lines = linesAPI(_, lines);
-      return chart;
-    };
-
-    chart.zeroLine = function (_) {
-      if (!arguments.length) { return zeroLine; }
-      zeroLine = zeroLineAPI(_, zeroLine);
-      return chart;
-    };
-
-    chart.listeners = function (_) {
-      if (!arguments.length) { return listeners; }
-      listeners = _;
-      return chart;
-    };
-
-    chart.on = addEventListener(listeners, chart);
-
-    chart.off = removeEventListener(listeners, chart);
-
-    return chart;
-  };
-});
-define('src/modules/element/svg/rect',['require','d3','src/modules/component/events'],function (require) {
-  var d3 = require("d3");
-  var events = require("src/modules/component/events");
-
-  return function rect() {
-    var x = function (d) { return d.x; };
-    var y = function (d) { return d.y; };
-    var rx = 0;
-    var ry = 0;
-    var width = null;
-    var height = null;
-    var values = null;
-
-    // Options
-    var color = d3.scale.category10();
-    var cssClass = "bar";
-    var fill = null;
-    var stroke = null;
-    var strokeWidth = 0;
-    var opacity = null;
-    var listeners = {};
-
-    function element(selection) {
-      selection.each(function (data, index) {
-        var rectEvents = events().listeners(listeners);
-
-        var bars = d3.select(this).selectAll("rects")
-          .data(values ? values : data);
-
-        bars.exit().remove();
-
-        bars.enter().append("rect");
-
-        bars
-          .attr("class", cssClass)
-          .attr("fill", fill ? fill : colorFill)
-          .attr("stroke", stroke ? stroke : colorFill)
-          .attr("stroke-width", strokeWidth)
-          .attr("x", x)
-          .attr("y", y)
-          .attr("rx", rx)
-          .attr("ry", ry)
-          .attr("width", width)
-          .attr("height", height)
-          .style("opacity", opacity);
-
-        bars.call(rectEvents);
-      });
-    }
-
-    function colorFill(d, i) {
-      return color(i);
-    }
-
-    // Public API
-    element.data = function (_) {
-      if (!arguments.length) { return values; }
-      values = _;
-      return element;
-    };
-
-    element.x = function (_) {
-      if (!arguments.length) { return x; }
-      x = _;
-      return element;
-    };
-
-    element.y = function (_) {
-      if (!arguments.length) { return y; }
-      y = _;
-      return element;
-    };
-
-    element.rx = function (_) {
-      if (!arguments.length) { return rx; }
-      rx = _;
-      return element;
-    };
-
-    element.ry = function (_) {
-      if (!arguments.length) { return ry; }
-      ry = _;
-      return element;
-    };
-
-    element.width = function (_) {
-      if (!arguments.length) { return width; }
-      width = _;
-      return element;
-    };
-
-    element.height = function (_) {
-      if (!arguments.length) { return height; }
-      height = _;
-      return element;
-    };
-
-    element.cssClass= function (_) {
-      if (!arguments.length) { return cssClass; }
-      cssClass = _;
-      return element;
-    };
-
-    element.fill = function (_) {
-      if (!arguments.length) { return fill; }
-      fill = _;
-      return element;
-    };
-
-    element.opacity = function (_) {
-      if (!arguments.length) { return opacity; }
-      opacity = _;
-      return element;
-    };
-
-    element.color = function (_) {
-      if (!arguments.length) { return color; }
-      color = _;
-      return element;
-    };
-
-    element.stroke = function (_) {
-      if (!arguments.length) { return stroke; }
-      stroke = _;
-      return element;
-    };
-
-    element.strokeWidth = function (_) {
-      if (!arguments.length) { return strokeWidth; }
-      strokeWidth = _;
-      return element;
-    };
-
-    element.listeners = function (_) {
-      if (!arguments.length) { return listeners; }
-      listeners = _;
-      return element;
-    };
-
-    return element;
-  };
-});
-
-define('src/modules/helpers/api/rect',[],function () {
-  return function (_, rects) {
-    rects.show = typeof _.show !== "undefined" ? _.show : rects.show;
-    rects.x = typeof _.x !== "undefined" ? _.x : rects.x;
-    rects.y = typeof _.y !== "undefined" ? _.y : rects.y;
-    rects.width = typeof _.width !== "undefined" ? _.width : rects.width;
-    rects.height = typeof _.height !== "undefined" ? _.height : rects.height;
-    rects.groupClass = typeof _.groupClass !== "undefined" ? _.groupClass : rects.groupClass;
-    rects.cssClass = typeof _.cssClass !== "undefined" ? _.cssClass : rects.cssClass;
-    rects.fill = typeof _.fill !== "undefined" ? _.fill : rects.fill;
-    rects.stroke = typeof _.stroke !== "undefined" ? _.stroke : rects.stroke;
-    rects.strokeWidth = typeof _.strokeWidth !== "undefined" ? _.strokeWidth : rects.strokeWidth;
-    rects.opacity = typeof _.opacity !== "undefined" ? _.opacity : rects.opacity;
-
-    return rects;
-  };
-});
-
-define('src/modules/chart/bar',['require','d3','src/modules/helpers/add_event_listener','src/modules/component/axis','src/modules/component/brush','src/modules/element/svg/clipPath','src/modules/helpers/deep_copy','src/modules/helpers/map_domain','src/modules/element/svg/rect','src/modules/helpers/remove_event_listener','src/modules/element/svg/line','src/modules/helpers/api/axis','src/modules/helpers/api/clippath','src/modules/helpers/options/clippath','src/modules/helpers/api/margin','src/modules/helpers/options/margin','src/modules/helpers/api/rect','src/modules/helpers/api/scale','src/modules/helpers/options/scale','src/modules/helpers/api/stack','src/modules/helpers/options/stack','src/modules/helpers/options/x_axis','src/modules/helpers/options/y_axis','src/modules/helpers/api/zero_line','src/modules/helpers/options/zero_line'],function (require) {
-  var d3 = require("d3");
-  var addEventListener = require("src/modules/helpers/add_event_listener");
-  var axis = require("src/modules/component/axis");
-  var brushComponent = require("src/modules/component/brush");
-  var clip = require("src/modules/element/svg/clipPath");
-  var deepCopy = require("src/modules/helpers/deep_copy");
-  var mapDomain = require("src/modules/helpers/map_domain");
-  var rect = require("src/modules/element/svg/rect");
-  var removeEventListener = require("src/modules/helpers/remove_event_listener");
-  var zeroAxisLine = require("src/modules/element/svg/line");
-
-  var axisAPI = require("src/modules/helpers/api/axis");
-  var clippathAPI = require("src/modules/helpers/api/clippath");
-  var clipPathOptions = require("src/modules/helpers/options/clippath");
-  var marginAPI = require("src/modules/helpers/api/margin");
-  var marginOptions = require("src/modules/helpers/options/margin");
-  var rectAPI = require("src/modules/helpers/api/rect");
-  var scaleAPI = require("src/modules/helpers/api/scale");
-  var scaleOptions = require("src/modules/helpers/options/scale");
-  var stackAPI = require("src/modules/helpers/api/stack");
-  var stackOptions = require("src/modules/helpers/options/stack");
-  var xAxisOptions = require("src/modules/helpers/options/x_axis");
-  var yAxisOptions = require("src/modules/helpers/options/y_axis");
-  var zeroLineAPI = require("src/modules/helpers/api/zero_line");
-  var zeroLineOptions = require("src/modules/helpers/options/zero_line");
-
-  return function barChart() {
-    var margin = deepCopy(marginOptions, {});
-    var width = 760;
-    var height = 120;
-    var color = d3.scale.category20c();
-    var xValue = function (d) { return d.x; };
-    var yValue = function (d) { return d.y; };
-    var values = function (d) { return d; };
-    var stacked = "true";
-
-    // Scale options
-    var xScaleOpts = deepCopy(scaleOptions, {});
-    var yScaleOpts = deepCopy(scaleOptions, {});
-    var xScale;
-    var yScale;
-
-    // Other options
-    var stackOpts = deepCopy(stackOptions, {});
-    var axisX = deepCopy(xAxisOptions, {});
-    var axisY = deepCopy(yAxisOptions, {});
-    var clipPath = deepCopy(clipPathOptions, {});
-    var zeroLine = deepCopy(zeroLineOptions, {});
-    var listeners = {};
-
-    // Rect options
-    var rects = {
-      groupClass: "rects",
-      cssClass: "bars",
-      x: function (d, i, j, scale) {
-        return scale(xValue.call(null, d, i));
-      },
-      y: function (d, i, j, scale) {
-        return scale(yValue.call(null, d, i));
-      },
-      width: function (d, i, j, scale, data) {
-        return scale.range()[1] / data.length;
-      },
-      height: function (d, i, j, scale) {
-        return scale.range()[0] - scale(yValue.call(null, d, i));
-      },
-      rx: 0,
-      ry: 0,
-      fill: function (d, i) { return color(i); },
-      stroke: function (d, i) { return color(i); },
-      strokeWidth: 0,
-      opacity: 1
-    };
-
-    function chart(selection) {
-      selection.each(function (data, index) {
-        var stack = d3.layout.stack().x(xValue).y(yValue).values(values)
-          .offset(stackOpts.offset)
-          .order(stackOpts.order)
-          .out(stackOpts.out);
-
-        if (stacked) { data = stack(data); }
-
-        width = width - margin.left - margin.right;
-        height = height - margin.top - margin.bottom;
-
-        var newData = data.map(values);
-
-        xScale = xScaleOpts.scale || d3.time.scale.utc();
-        xScale.domain(xScaleOpts.domain || d3.extent(mapDomain(newData), xValue));
-
-        if (typeof xScale.rangeBands === "function") {
-          xScale.rangeBands([0, width, 0.1]);
-        } else {
-          xScale.range([0, width]);
-        }
-
-        yScale = yScaleOpts.scale || d3.scale.linear();
-        yScale.domain(yScaleOpts.domain || [
-            Math.min(0, d3.min(mapDomain(newData), yStackValue)),
-            Math.max(0, d3.max(mapDomain(newData), yStackValue))
-          ])
-          .range([height, 0]);
-
-        if (xScaleOpts.nice) { xScale.nice(); }
-        if (yScaleOpts.nice) { yScale.nice(); }
-
-        var svg = d3.select(this).selectAll("svg")
-          .data([data])
-          .enter().append("svg")
-          .attr("width", width + margin.left + margin.right)
-          .attr("height", height + margin.top + margin.bottom);
-
-        var g = svg.append("g")
-          .attr("transform", "translate(" + margin.left + ", " + margin.top + ")");
-
-        // Brush
-        if (listeners.brush.length) {
-          var brush = brushComponent()
-            .height(height)
-            .xScale(xScale)
-            .brushend(listeners.brush);
-
-          g.call(brush);
-        }
-
-        var clippath = clip()
-          .width(clipPath.width || width)
-          .height(clipPath.height || height);
-
-        var bars = rect()
-          .data(values)
-          .cssClass(rects.cssClass)
-          .fill(function (d, i, j) {
-            return color(rects.fill.call(this, d, i, j));
-          })
-          .stroke(function (d, i, j) {
-            return color(rects.stroke.call(this, d, i, j));
-          })
-          .strokeWidth(rects.strokeWidth)
-          .opacity(rects.opacity)
-          .rx(rects.rx)
-          .ry(rects.ry)
-          .x(function (d, i, j) {
-            return rects.x.call(null, d, i, j, xScale, data);
-          })
-          .width(function (d, i, j) {
-            return rects.width.call(null, d, i, j, xScale, data);
-          })
-          .y(function (d, i, j) {
-            return rects.y.call(null, d, i, j, yScale, data);
-          })
-          .height(function (d, i, j) {
-            return rects.height.call(null, d, i, j, yScale, data);
-          })
-          .listeners(listeners);
-
-        g.call(clippath)
-          .append("g")
-          .attr("clip-path", "url(#" + clippath.id() + ")");
-
-        if (stacked) {
-          g.selectAll("rectGroup")
-            .data(data)
-            .enter().append("g")
-            .attr("class", rects.groupClass)
-            .call(bars);
-        } else {
-          g.call(bars);
-        }
-
-        if (axisX.show) {
-          var xAxis = axis()
-            .scale(xScale)
-            .gClass(axisX.gClass)
-            .transform(axisX.transform || "translate(0," + (yScale.range()[0] + 1) + ")")
-            .tick({
-              number: axisX.tick.number,
-              values: axisX.tick.values,
-              size: axisX.tick.size,
-              padding: axisX.tick.padding,
-              format: axisX.tick.format,
-              rotate: axisX.tick.rotate,
-              innerTickSize: axisX.tick.innerTickSize,
-              outerTickSize: axisX.tick.outerTickSize,
-              text: {
-                x: axisX.tick.text.x,
-                y: axisX.tick.text.y,
-                dx: axisX.tick.text.dx,
-                dy: axisX.tick.text.dy,
-                anchor: axisX.tick.text.anchor
-              }
-            })
-            .title({
-              titleClass: axisX.title.titleClass,
-              x: width / 2,
-              y: axisX.title.y,
-              dx: axisX.title.dx,
-              dy: axisX.title.dy,
-              anchor: axisX.title.anchor,
-              text: axisX.title.text
-            });
-
-          g.call(xAxis);
-        }
-
-        if (axisY.show) {
-          var yAxis = axis()
-            .scale(yScale)
-            .orient("left")
-            .gClass(axisY.gClass)
-            .transform(axisY.transform || "translate(-1,0)")
-            .tick({
-              number: axisY.tick.number,
-              values: axisY.tick.values,
-              size: axisY.tick.size, padding: axisY.tick.padding, format: axisY.tick.format,
-              rotate: axisY.tick.rotate,
-              innerTickSize: axisY.tick.innerTickSize,
-              outerTickSize: axisY.tick.outerTickSize,
-              text: {
-                x: axisY.tick.text.x,
-                y: axisY.tick.text.y,
-                dx: axisY.tick.text.dx,
-                dy: axisY.tick.text.dy,
-                anchor: axisY.tick.text.anchor
-              }
-            })
-            .title({
-              titleClass: axisY.title.titleClass,
-              x: axisY.title.x,
-              y: axisY.title.y,
-              dx: axisY.title.dx,
-              dy: axisY.title.dy,
-              transform: "translate(0," + height / 2 + ")rotate(" + axisY.title.rotate + ")",
-              anchor: axisY.title.anchor,
-              text: axisY.title.text
-            });
-
-          g.call(yAxis);
-        }
-
-        if (zeroLine.add) {
-          var zLine = zeroAxisLine()
-            .cssClass(zeroLine.lineClass)
-            .x1(function () { return xScale.range()[0]; })
-            .x2(function () { return xScale.range()[1]; })
-            .y1(function () { return yScale(0); })
-            .y2(function () { return yScale(0); })
-            .stroke(zeroLine.stroke)
-            .strokeWidth(zeroLine.strokeWidth)
-            .opacity(zeroLine.opacity);
-
-          g.call(zLine);
-        }
-      });
-    }
-
-    function yStackValue (d, i) {
-      return d.y0 + d.y;
-    }
-
-    // Public API
-    chart.margin = function (_) {
-      if (!arguments.length) { return margin; }
-      margin = marginAPI(_, margin);
-      return chart;
-    };
-
-    chart.width = function (_) {
-      if (!arguments.length) { return width; }
-      width = _;
-      return chart;
-    };
-
-    chart.height = function (_) {
-      if (!arguments.length) { return height; }
-      height = _;
-      return chart;
-    };
-
-    chart.color = function (_) {
-      if (!arguments.length) { return color; }
-      color = _;
-      return chart;
-    };
-
-    chart.x = function (_) {
-      if (!arguments.length) { return xValue; }
-      xValue = _;
-      return chart;
-    };
-
-    chart.y = function (_) {
-      if (!arguments.length) { return yValue; }
-      yValue = _;
-      return chart;
-    };
-
-    chart.values = function (_) {
-      if (!arguments.length) { return values; }
-      values = _;
-      return chart;
-    };
-
-    chart.stacked = function (_) {
-      if (!arguments.length) { return stacked; }
-      stacked = _;
-      return chart;
-    };
-
-    chart.xScale = function (_) {
-      if (!arguments.length) { return xScaleOpts; }
-      xScaleOpts = scaleAPI(_, xScaleOpts);
-      return chart;
-    };
-
-    chart.yScale = function (_) {
-      if (!arguments.length) { return yScaleOpts; }
-      yScaleOpts = scaleAPI(_, yScaleOpts);
-      return chart;
-    };
-
-    chart.xAxis = function (_) {
-      if (!arguments.length) { return axisX; }
-      axisX = axisAPI(_, axisX);
-      return chart;
-    };
-
-    chart.yAxis = function (_) {
-      if (!arguments.length) { return axisY; }
-      axisY = axisAPI(_, axisY);
-      return chart;
-    };
-
-    chart.stack = function (_) {
-      if (!arguments.length) { return stackOptions; }
-      stackOptions = stackAPI(_, stackOptions);
-      return chart;
-    };
-
-    chart.clipPath = function (_) {
-      if (!arguments.length) { return clipPath; }
-      clipPath = clippathAPI(_, clipPath);
-      return chart;
-    };
-
-    chart.zeroLine = function (_) {
-      if (!arguments.length) { return zeroLine; }
-      zeroLine = zeroLineAPI(_, zeroLine);
-      return chart;
-    };
-
-    chart.rects = function (_) {
-      if (!arguments.length) { return rects; }
-      rects = rectAPI(_, rects);
-      return chart;
-    };
-
-    chart.listeners = function (_) {
-      if (!arguments.length) { return listeners; }
-      listeners = _;
-      return chart;
-    };
-
-    chart.on = addEventListener(listeners, chart);
-
-    chart.off = removeEventListener(listeners, chart);
-
-    return chart;
-  };
-});
+}();
 define('src/modules/layout/box',['require','d3'],function (require) {
   var d3 = require("d3");
 
   return function box() {
+    // Private variables
     var values = function (d) { return d.values; };
     var accessor = function (d) { return d; };
 
@@ -11866,6 +9979,7 @@ define('src/modules/layout/box',['require','d3'],function (require) {
       return data;
     }
 
+    // Public API
     layout.values = function (_) {
       if (!arguments.length) { return values; }
       values = _;
@@ -11893,7 +10007,7 @@ define('src/modules/component/boxplot',['require','d3'],function (require) {
       width: 20,
       height: null,
       y: null,
-      boxClass: "range",
+      class: "range",
       fill: "white",
       stroke: "black",
       strokeWidth: "2px"
@@ -11905,7 +10019,7 @@ define('src/modules/component/boxplot',['require','d3'],function (require) {
       x2: 0,
       y1: null,
       y2: null,
-      rangeClass: "range",
+      class: "range",
       stroke: "black",
       strokeWidth: "4px"
     };
@@ -11914,7 +10028,7 @@ define('src/modules/component/boxplot',['require','d3'],function (require) {
     var max = {
       y1: null,
       y2: null,
-      maxClass: "max",
+      class: "max",
       stroke: "black",
       strokeWidth: "4px"
     };
@@ -11923,7 +10037,7 @@ define('src/modules/component/boxplot',['require','d3'],function (require) {
     var min = {
       y1: null,
       y2: null,
-      minClass: "min",
+      class: "min",
       stroke: "black",
       strokeWidth: "4px"
     };
@@ -11932,7 +10046,7 @@ define('src/modules/component/boxplot',['require','d3'],function (require) {
     var median = {
       y1: 0,
       y2: 0,
-      medianClass: "median",
+      class: "median",
       stroke: "darkgrey",
       strokeWidth: "4px"
     };
@@ -11957,7 +10071,7 @@ define('src/modules/component/boxplot',['require','d3'],function (require) {
             var g = d3.select(this);
 
             g.append("line")
-              .attr("class", range.rangeClass)
+              .attr("class", range.class)
               .attr("x1", range.x1)
               .attr("x2", range.x2)
               .attr("y1", range.y1)
@@ -11966,7 +10080,7 @@ define('src/modules/component/boxplot',['require','d3'],function (require) {
               .style("stroke-boxWidth", range.strokeWidth);
 
             g.append("line")
-              .attr("class", max.maxClass)
+              .attr("class", max.class)
               .attr("x1", maxX1)
               .attr("x2", maxX2)
               .attr("y1", max.y1)
@@ -11975,7 +10089,7 @@ define('src/modules/component/boxplot',['require','d3'],function (require) {
               .style("stroke-boxWidth", max.strokeWidth);
 
             g.append("line")
-              .attr("class", min.minClass)
+              .attr("class", min.class)
               .attr("x1", minX1)
               .attr("x2", minX2)
               .attr("y1", min.y1)
@@ -11984,7 +10098,7 @@ define('src/modules/component/boxplot',['require','d3'],function (require) {
               .style("stroke-boxWidth", min.strokeWidth);
 
             g.append("rect")
-              .attr("class", box.boxClass)
+              .attr("class", box.class)
               .attr("x", boxX)
               .attr("y", box.y)
               .attr("width", box.width)
@@ -11994,7 +10108,7 @@ define('src/modules/component/boxplot',['require','d3'],function (require) {
               .style("stroke-boxWidth", box.strokeWidth);
 
             g.append("line")
-              .attr("class", median.medianClass)
+              .attr("class", median.class)
               .attr("x1", medianX1)
               .attr("x2", medianX2)
               .attr("y1", median.y1)
@@ -12022,7 +10136,7 @@ define('src/modules/component/boxplot',['require','d3'],function (require) {
       box.width = typeof _.width !== "undefined" ? _.width : box.width;
       box.height = typeof _.height !== "undefined" ? _.height : box.height;
       box.y = typeof _.y !== "undefined" ? _.y : box.y;
-      box.boxClass = typeof _.boxClass !== "undefined" ? _.boxClass : box.boxClass;
+      box.class = typeof _.class !== "undefined" ? _.class : box.class;
       box.fill = typeof _.fill !== "undefined" ? _.fill : box.fill;
       box.stroke = typeof _.stroke !== "undefined" ? _.stroke : box.stroke;
       box.strokeWidth = typeof _.strokeWidth !== "undefined" ? _.strokeWidth : box.strokeWidth;
@@ -12035,7 +10149,7 @@ define('src/modules/component/boxplot',['require','d3'],function (require) {
       range.x2 = typeof _.x2!== "undefined" ? _.x2 : range.x2;
       range.y1 = typeof _.y1 !== "undefined" ? _.y1 : range.y1;
       range.y2 = typeof _.y2 !== "undefined" ? _.y2 : range.y2;
-      range.rangeClass = typeof _.rangeClass !== "undefined" ? _.rangeClass : range.rangeClass;
+      range.class = typeof _.class !== "undefined" ? _.class : range.class;
       range.stroke = typeof _.stroke !== "undefined" ? _.stroke : range.stroke;
       range.strokeWidth = typeof _.strokeWidth !== "undefined" ? _.strokeWidth : range.strokeWidth;
       return component;
@@ -12045,7 +10159,7 @@ define('src/modules/component/boxplot',['require','d3'],function (require) {
       if (!arguments.length) { return max; }
       max.y1 = typeof _.y1 !== "undefined" ? _.y1 : max.y1;
       max.y2 = typeof _.y2 !== "undefined" ? _.y2 : max.y2;
-      max.maxClass = typeof _.maxClass !== "undefined" ? _.maxClass : max.maxClass;
+      max.class = typeof _.class !== "undefined" ? _.class : max.class;
       max.stroke = typeof _.stroke !== "undefined" ? _.stroke : max.stroke;
       max.strokeWidth = typeof _.strokeWidth !== "undefined" ? _.strokeWidth : max.strokeWidth;
       return component;
@@ -12055,7 +10169,7 @@ define('src/modules/component/boxplot',['require','d3'],function (require) {
       if (!arguments.length) { return min; }
       min.y1 = typeof _.y1 !== "undefined" ? _.y1 : min.y1;
       min.y2 = typeof _.y2 !== "undefined" ? _.y2 : min.y2;
-      min.minClass = typeof _.minClass !== "undefined" ? _.minClass : min.minClass;
+      min.class = typeof _.class !== "undefined" ? _.class : min.class;
       min.stroke = typeof _.stroke !== "undefined" ? _.stroke : min.stroke;
       min.strokeWidth = typeof _.strokeWidth !== "undefined" ? _.strokeWidth : min.strokeWidth;
       return component;
@@ -12065,7 +10179,7 @@ define('src/modules/component/boxplot',['require','d3'],function (require) {
       if (!arguments.length) { return median; }
       median.y1 = typeof _.y1 !== "undefined" ? _.y1 : median.y1;
       median.y2 = typeof _.y2 !== "undefined" ? _.y2 : median.y2;
-      median.medianClass = typeof _.medianClass !== "undefined" ? _.medianClass : median.medianClass;
+      median.class = typeof _.class !== "undefined" ? _.class : median.class;
       median.stroke = typeof _.stroke !== "undefined" ? _.stroke : median.stroke;
       median.strokeWidth = typeof _.strokeWidth !== "undefined" ? _.strokeWidth : median.strokeWidth;
       return component;
@@ -12074,11 +10188,302 @@ define('src/modules/component/boxplot',['require','d3'],function (require) {
     return component;
   };
 });
-define('src/modules/chart/boxplot',['require','d3','src/modules/layout/box','src/modules/component/boxplot','src/modules/component/axis'],function (require) {
+define('builder',['require','d3'],function (require) {
+  var d3 = require("d3");
+
+  return function builder(attrs, func) {
+    if (typeof attrs !== "object") {
+      throw new Error("builder expects an object as its first argument");
+    }
+
+    if (typeof func !== "function") {
+      throw new Error("builder expects a function as its second argument");
+    }
+
+    d3.entries(attrs).forEach(function (d) {
+      if (typeof func[d.key] === "function") {
+        func[d.key](d.value);
+      }
+    });
+
+    return func;
+  };
+});
+define('src/modules/component/axis/truncate',['require','d3'],function (require) {
+  var d3 = require("d3");
+
+  return function truncate() {
+    // Private variables
+    var maxCharLength = 10;
+
+    function component(text) {
+      text.each(function () {
+        var txt = d3.select(this);
+        var labelCharLength = txt.text().length;
+
+        // Shorten label and append ..
+        if (labelCharLength > maxCharLength) {
+          var truncatedLabel = txt.text().slice(0, maxCharLength) + "..";
+          txt.text(truncatedLabel);
+        }
+      });
+    }
+
+    // Public API
+    component.maxCharLength = function (_) {
+      if (!arguments.length) { return maxCharLength; }
+      maxCharLength = typeof _ !== "number" ? maxCharLength : _;
+      return component;
+    };
+
+    return component;
+  };
+});
+
+define('src/modules/component/axis/rotate',['require','d3','./truncate'],function (require) {
+  var d3 = require("d3");
+  var truncate = require("./truncate");
+
+  return function rotate() {
+    // Private variables
+    var axisLength = 100;
+    var measure = "width";
+    var labelPadding = 5;
+    var truncateLength = 10;
+    var text = {
+      transform: "translate(0,0)rotate(-45)",
+      x: 0,
+      y: 6,
+      dx: "",
+      dy: ".71em",
+      anchor: "end"
+    };
+
+    function component(g) {
+      g.each(function () {
+        var ticks = d3.select(this).selectAll(".tick text");
+        var numOfTicks = ticks[0].length;
+        var maxTickLabelLength = (axisLength / numOfTicks) - labelPadding;
+        var isRotated;
+
+        ticks.each(function () {
+          var labelLength = this.getBBox()[measure];
+          if (labelLength >= maxTickLabelLength) { isRotated = true; }
+        });
+
+        // Rotate and truncate
+        if (isRotated) {
+          ticks
+            .attr("transform", text.transform)
+            .attr("x", text.x)
+            .attr("y", text.y)
+            .attr("dx", text.dx)
+            .attr("dy", text.dy)
+            .style("text-anchor", text.anchor);
+
+          // Truncation logic goes here
+          ticks.each(function () {
+            d3.select(this)
+              .call(truncate().maxCharLength(truncateLength));
+          });
+        }
+      });
+    }
+
+    // Public API
+    component.axisLength = function (_) {
+      if (!arguments.length) { return axisLength; }
+      axisLength = typeof _ !== "number" ? axisLength : _;
+      return component;
+    };
+
+    component.measure = function (_) {
+      if (!arguments.length) { return measure; }
+      measure = typeof _ !== "string" ? measure : _;
+      return component;
+    };
+
+    component.labelPadding = function (_) {
+      if (!arguments.length) { return labelPadding; }
+      labelPadding = typeof _ !== "number" ? labelPadding : _;
+      return component;
+    };
+
+    component.truncateLength = function (_) {
+      if (!arguments.length) { return truncateLength; }
+      truncateLength = typeof _ !== "number" ? truncateLength : _;
+      return component;
+    };
+
+    component.text = function (_) {
+      if (!arguments.length) { return text; }
+      text.transform = typeof _.transform !== "undefined" ? _.transform : text.transform;
+      text.x = typeof _.x !== "undefined" ? _.x : text.x;
+      text.y = typeof _.y !== "undefined" ? _.y : text.y;
+      text.dx = typeof _.dx !== "undefined" ? _.dx : text.dx;
+      text.dy = typeof _.dy !== "undefined" ? _.dy : text.dy;
+      text.anchor = typeof _.anchor !== "undefined" ? _.anchor : text.anchor;
+      return component;
+    };
+
+    return component;
+  };
+});
+
+define('src/modules/component/axis/axis',['require','d3','builder','./rotate'],function (require) {
+  var d3 = require("d3");
+  var builder = require("builder");
+  var rotate = require("./rotate");
+
+  return function axes() {
+    // Private variables
+    var scale = d3.scale.linear();
+    var orient = "bottom";
+    var tick = {
+      number: 10,
+      values: null,
+      size: 6,
+      innerTickSize: 6,
+      outerTickSize: 6,
+      padding: 3,
+      format: null
+    };
+    var tickText = {
+      transform: null,
+      anchor: "middle",
+      x: 0,
+      y: 9,
+      dx: "",
+      dy: ".71em"
+    };
+    var rotateLabels = { allow: false };
+    var transform = "translate(0,0)";
+    var gClass = "axis";
+    var title = {
+      class: "axis title",
+      x: 6,
+      y: 6,
+      dx: "",
+      dy: ".71em",
+      anchor: "end",
+      transform: "translate(0,0)",
+      text: ""
+    };
+
+    function component(selection) {
+      selection.each(function () {
+        var axis = d3.svg.axis()
+          .scale(scale)
+          .orient(orient)
+          .ticks(tick.number)
+          .tickValues(tick.values)
+          .tickSize(tick.size)
+          .innerTickSize(tick.innerTickSize)
+          .outerTickSize(tick.outerTickSize)
+          .tickPadding(tick.padding)
+          .tickFormat(tick.format);
+
+        var g = d3.select(this).append("g")
+          .attr("class", gClass)
+          .attr("transform", transform)
+          .call(axis);
+
+        if (rotateLabels.allow) {
+          var axisLength = Math.abs(scale.range()[1] - scale.range()[0]);
+          var rotation = rotate()
+            .axisLength(axisLength);
+
+          g.call(builder(rotateLabels, rotation));
+        }
+
+        g.append("text")
+          .attr("class", title.class)
+          .attr("x", title.x)
+          .attr("y", title.y)
+          .attr("dx", title.dx)
+          .attr("dy", title.dy)
+          .attr("transform", title.transform)
+          .style("title-anchor", title.anchor)
+          .text(title.text);
+      });
+    }
+
+    // Public API
+    component.class = function (_) {
+      if (!arguments.length) { return gClass; }
+      gClass = _;
+      return component;
+    };
+
+    component.transform = function (_) {
+      if (!arguments.length) { return transform; }
+      transform = _;
+      return component;
+    };
+
+    component.scale = function (_) {
+      if (!arguments.length) { return scale; }
+      scale = _;
+      return component;
+    };
+
+    component.orient = function (_) {
+      if (!arguments.length) { return orient; }
+      orient = _;
+      return component;
+    };
+
+    component.tick = function (_) {
+      if (!arguments.length) { return tick; }
+      tick.number = typeof _.number !== "undefined" ? _.number : tick.number;
+      tick.values = typeof _.values !== "undefined" ? _.values : tick.values;
+      tick.size = typeof _.size !== "undefined" ? _.size : tick.size;
+      tick.padding = typeof _.padding !== "undefined" ? _.padding : tick.padding;
+      tick.format = typeof _.format !== "undefined" ? _.format : tick.format;
+      tick.innerTickSize = typeof _.innerTickSize !== "undefined" ? _.innerTickSize : tick.innerTickSize;
+      tick.outerTickSize = typeof _.outerTickSize !== "undefined" ? _.outerTickSize : tick.outerTickSize;
+      return component;
+    };
+
+    component.tickText = function (_) {
+      if (!arguments.length) { return tickText; }
+      tickText.transform = typeof _.transform !== "undefined" ? _.transform : tickText.transform;
+      tickText.anchor = typeof _.anchor !== "undefined" ? _.anchor : tickText.anchor;
+      tickText.x = typeof _.x !== "undefined" ? _.x : tickText.x;
+      tickText.y = typeof _.y !== "undefined" ? _.y : tickText.y;
+      tickText.dx = typeof _.dx !== "undefined" ? _.dx : tickText.dx;
+      tickText.dy = typeof _.dy !== "undefined" ? _.dy : tickText.dy;
+      return component;
+    };
+
+    component.rotateLabels = function (_) {
+      if (!arguments.length) { return rotateLabels; }
+      rotateLabels = typeof _ !== "object" ? rotateLabels : _;
+      return component;
+    };
+
+    component.title = function (_) {
+      if (!arguments.length) { return title; }
+      title.class = typeof _.class !== "undefined" ? _.class : title.class;
+      title.x = typeof _.x !== "undefined" ? _.x : title.x;
+      title.y = typeof _.y !== "undefined" ? _.y : title.y;
+      title.dx = typeof _.dx !== "undefined" ? _.dx : title.dx;
+      title.dy = typeof _.dy !== "undefined" ? _.dy : title.dy;
+      title.transform = typeof _.transform !== "undefined" ? _.transform : title.transform;
+      title.anchor = typeof _.anchor !== "undefined" ? _.anchor : title.anchor;
+      title.text = typeof _.text !== "undefined" ? _.text : title.text;
+      return component;
+    };
+
+    return component;
+  };
+});
+
+define('src/modules/chart/boxplot',['require','d3','src/modules/layout/box','src/modules/component/boxplot','src/modules/component/axis/axis'],function (require) {
   var d3 = require("d3");
   var box = require("src/modules/layout/box");
   var boxPlot = require("src/modules/component/boxplot");
-  var axis = require("src/modules/component/axis");
+  var axis = require("src/modules/component/axis/axis");
 
   return function boxplot() {
     var margin = { top:20, right: 20, bottom: 50, left: 50 };
@@ -12135,8 +10540,8 @@ define('src/modules/chart/boxplot',['require','d3','src/modules/layout/box','src
 
         yScale = yScale ? yScale : d3.scale.linear()
           .domain([
-            Math.min(0, d3.min(mapDomain(data))),
-            Math.max(0, d3.max(mapDomain(data)))
+            Math.min(0, d3.min(d3.merge(data))),
+            Math.max(0, d3.max(d3.merge(data)))
           ])
           .range([height, 0]);
 
@@ -12193,14 +10598,6 @@ define('src/modules/chart/boxplot',['require','d3','src/modules/layout/box','src
 
     function Y2(d) {
       return yScale(d.min) - yScale(d.median);
-    }
-
-    function mapDomain(data) {
-      return data.map(function (d, i) {
-        return accessor.call(this, values.call(this, d, i));
-      }).reduce(function (a, b) {
-        return a.concat(b);
-      });
     }
 
     function gTransform(d, i) {
@@ -12484,6 +10881,133 @@ define('src/modules/chart/dendrogram',['require','d3'],function (require) {
   };
 });
 
+define('src/modules/element/svg/rect',['require','d3'],function (require) {
+  var d3 = require("d3");
+
+  return function rect() {
+    var accessor = function (d) { return d; };
+    var x = function (d) { return d.x; };
+    var y = function (d) { return d.y; };
+    var rx = 0;
+    var ry = 0;
+    var width = null;
+    var height = null;
+
+    // Options
+    var cssClass = "bar";
+    var fill = colorFill;
+    var stroke = colorFill;
+    var strokeWidth = 0;
+    var opacity = 1;
+
+    function element(selection) {
+      selection.each(function (data, index) {
+        data = accessor.call(this, data, index);
+
+        var bars = d3.select(this)
+          .selectAll("." + cssClass)
+          .data(data);
+
+        bars.exit().remove();
+
+        bars.enter().append("rect");
+
+        bars
+          .attr("class", cssClass)
+          .attr("fill", fill)
+          .attr("stroke", stroke)
+          .attr("stroke-width", strokeWidth)
+          .attr("x", x)
+          .attr("y", y)
+          .attr("rx", rx)
+          .attr("ry", ry)
+          .attr("width", width)
+          .attr("height", height)
+          .style("opacity", opacity);
+      });
+    }
+
+    function colorFill(d, i) {
+      return d3.scale.category10()(i);
+    }
+
+    // Public API
+    element.accessor = function (_) {
+      if (!arguments.length) { return accessor; }
+      accessor = _;
+      return element;
+    };
+
+    element.x = function (_) {
+      if (!arguments.length) { return x; }
+      x = _;
+      return element;
+    };
+
+    element.y = function (_) {
+      if (!arguments.length) { return y; }
+      y = _;
+      return element;
+    };
+
+    element.rx = function (_) {
+      if (!arguments.length) { return rx; }
+      rx = _;
+      return element;
+    };
+
+    element.ry = function (_) {
+      if (!arguments.length) { return ry; }
+      ry = _;
+      return element;
+    };
+
+    element.width = function (_) {
+      if (!arguments.length) { return width; }
+      width = _;
+      return element;
+    };
+
+    element.height = function (_) {
+      if (!arguments.length) { return height; }
+      height = _;
+      return element;
+    };
+
+    element.class= function (_) {
+      if (!arguments.length) { return cssClass; }
+      cssClass = _;
+      return element;
+    };
+
+    element.fill = function (_) {
+      if (!arguments.length) { return fill; }
+      fill = _;
+      return element;
+    };
+
+    element.opacity = function (_) {
+      if (!arguments.length) { return opacity; }
+      opacity = _;
+      return element;
+    };
+
+    element.stroke = function (_) {
+      if (!arguments.length) { return stroke; }
+      stroke = _;
+      return element;
+    };
+
+    element.strokeWidth = function (_) {
+      if (!arguments.length) { return strokeWidth; }
+      strokeWidth = _;
+      return element;
+    };
+
+    return element;
+  };
+});
+
 define('src/modules/element/canvas/rect',['require','d3'],function (require) {
   var d3 = require("d3");
 
@@ -12575,7 +11099,7 @@ define('src/modules/element/canvas/rect',['require','d3'],function (require) {
     }
 
     // Public API
-    element.cssClass = function (_) {
+    element.class = function (_) {
       if (!arguments.length) { return cssClass; }
       cssClass = _;
       return element;
@@ -12633,192 +11157,359 @@ define('src/modules/element/canvas/rect',['require','d3'],function (require) {
   };
 });
 
-define('src/modules/chart/heatmap',['require','d3','src/modules/element/svg/rect','src/modules/element/canvas/rect','src/modules/component/axis'],function (require) {
+define('src/modules/helpers/target_index',[],function () {
+  return function getIndex(parent, child) {
+    function isPresent(d) { return d > -1; }
+    function indexPosition(d, i) {
+      if (d.length > 1) { return i; }
+      return d;
+    }
+    function filterDown(d) {
+      if (Array.isArray(d) && !d.length) { return -1; }
+      return d;
+    }
+
+    var index = parent.datum()
+    .map(function (datum) {
+      var isArray = Array.isArray(child.datum());
+      var target = isArray ? child.datum() : [child.datum()];
+
+      return target.map(function (d) {
+        return datum.indexOf(d);
+      }).filter(isPresent);
+    })
+    .map(indexPosition)
+    .map(filterDown)
+    .filter(isPresent)[0];
+
+    if (Array.isArray(index)) { return index[0]; }
+
+    return index;
+  };
+});
+
+/**
+ * Adds event listeners to DOM elements
+ */
+define('src/modules/component/events/events',['require','d3','src/modules/helpers/target_index'],function (require) {
+  var d3 = require("d3");
+  var targetIndex = require("src/modules/helpers/target_index");
+
+  return function events() {
+    // Private variables
+    var listeners = {};
+
+    function component(selection) {
+      selection.each(function () {
+        var element = d3.select(this);
+
+        d3.entries(listeners).forEach(function (e) {
+          // Stop listening for event types that have
+          // an empty listeners array or that is set to null
+          if (!e.value || !e.value.length) {
+            return element.on(e.key, null);
+          }
+
+          element.on(e.key, function () {
+            d3.event.stopPropagation(); // => event.stopPropagation()
+
+            e.value.forEach(function (listener) {
+              // References the data point to calculate the correct index value
+              var svg = d3.event.target.farthestViewportElement;
+              var target = d3.select(d3.event.target);
+              var parent = !svg ? d3.select(d3.event.target) : d3.select(svg);
+              var datum = target.datum();
+              var index = targetIndex(parent, target) || 0;
+
+              listener.call(this, d3.event, datum, index);
+            });
+          });
+        });
+      });
+    }
+
+    // Public API
+    component.listeners = function (_) {
+      if (!arguments.length) { return listeners; }
+      listeners = typeof _ === "object" ? _ : listeners;
+      return component;
+    };
+
+    return component;
+  };
+});
+define('valuator',[],function () {
+  /**
+   * Wrapper function that returns a function
+   * that returns the argument or an object key.
+   * If argument is a function, returns the function.
+   */
+  return function (val) {
+    if (typeof val === "function") { return val; }
+    if (typeof val === "string") {
+      return function (d) { return d[val]; };
+    }
+    return function () { return val; };
+  };
+});
+/**
+ * Returns a function that adds an eventType, e.g. click, brush, mouseover
+ * and event listener, e.g. function (e) { console.log(e); }
+ * to an event object, e.g. { "click": [ listener1, listener2], "brush": [ listener1 ], ... }.
+ */
+define('src/modules/helpers/add_event_listener',[],function () {
+  return function (chart) {
+    return function (eventType, listener) {
+      var listeners = chart.listeners();
+
+      if (arguments.length === 1 && listeners[eventType]) {
+        return listeners[eventType];
+      }
+      if (arguments.length === 2 && typeof listener === "function") {
+        if (!listeners[eventType]) { listeners[eventType] = []; }
+        listeners[eventType].push(listener);
+      }
+      return chart;
+    };
+  };
+});
+/**
+ * Returns a function that removes event types, e.g: click, brush, mouseover, etc.
+ * and event listeners, e.g. function (e) { console.log(e); }
+ * from an event object, e.g. { "click": [ listener1, listener2], "brush": [ listener1 ], ... }.
+ * Ability to remove one event listener at a time or all listeners for an event type.
+ */
+define('src/modules/helpers/remove_event_listener',[],function () {
+  return function (chart) {
+    return function (eventType, listener) {
+      var listeners = chart.listeners();
+
+      if (arguments.length === 1 && listeners[eventType]) {
+        listeners[eventType] = null;
+      }
+      if (arguments.length === 2 && typeof listener === "function") {
+        if (!listeners[eventType]) { return; }
+
+        listeners[eventType] = listeners[eventType].filter(function (handler) {
+          return handler !== listener;
+        });
+      }
+
+      return chart;
+    };
+  };
+});
+define('src/modules/chart/heatmap',['require','d3','src/modules/element/svg/rect','src/modules/element/canvas/rect','src/modules/component/axis/axis','src/modules/component/events/events','valuator','src/modules/helpers/add_event_listener','src/modules/helpers/remove_event_listener'],function (require) {
   var d3 = require("d3");
   var svgRect = require("src/modules/element/svg/rect");
   var canvasRect = require("src/modules/element/canvas/rect");
-  var axis = require("src/modules/component/axis");
+  var axis = require("src/modules/component/axis/axis");
+  var events = require("src/modules/component/events/events");
+  var valuator = require("valuator");
+  var addEventListener = require("src/modules/helpers/add_event_listener");
+  var removeEventListener = require("src/modules/helpers/remove_event_listener");
 
   return function heatmap() {
     // Private variables
     var margin = { top: 20, right: 20, bottom: 20, left: 50 };
     var width = 960;
     var height = 500;
-    var color = d3.scale.category10();
+    var xValue = function (d) { return d.x; };
+    var yValue = function (d) { return d.y; };
+    var rectPadding = 0.1;
     var isCanvas = false;
 
-    var rect = {
-      cssClass: "rect",
-      x: function (d) { return d.x; },
-      y: function (d) { return d.y; },
-      fill: function (d) { return d.fill; },
-      opacity: function (d) { return 1; },
-      strokeWidth: 0,
-      padding: 0.1
+    var xScale = {
+      domain: null,
+      reverse: false,
+      sort: false
     };
 
-    var axisX = { 
+    var yScale = {
+      domain: null,
+      reverse: false,
+      sort: false
+    };
+
+    var rect = {
+      class: "rect",
+      fill: function (d) { return d.fill; },
+      opacity: function () { return 1; },
+      strokeWidth: 0
+    };
+
+    var xAxis = {
       show: true,
-      axisClass: "x axis", 
-      titleClass: "x-label",
-      x: function () { return width / 2; },
-      y: 30,
-      dy: ".35em",
-      textAnchor: "start",
-      title: "",
+      class: "x axis",
+      title: { class: "x-label", text: "" },
+      tick: {},
+      tickText: {
+        x: 0,
+        y: 9,
+        dy: ".71em",
+        anchor: "middle"
+      },
       filterTicksBy: 1,
       tickRotate: 270
     };
 
-    var axisY = {
+    var yAxis = {
       show: true,
-      axisClass: "y axis", 
-      titleClass: "y-label",
-      x: function () { return -height / 2; },
-      y: -60,
-      dy: ".35em",
-      textAnchor: "start",
-      title: "",
+      class: "y axis",
+      title: { class: "y-label", text: "" },
+      tick: {},
+      tickText: {
+        x: -9,
+        y: 0,
+        dy: ".35em",
+        anchor: "end"
+      },
       filterTicksBy: 1
     };
+
+    var listeners = {};
 
     function chart(selection) {
       selection.each(function (data, index) {
         var canvas;
 
-        var xScale = d3.scale.ordinal()
-          .domain(getDomain(data, "x"))
-          .rangeBands([0, width], rect.padding);
-
-        var yScale = d3.scale.ordinal()
-          .domain(getDomain(data, "y"))
-          .rangeBands([height, 0], rect.padding);
-
         width = width - margin.left - margin.right;
         height = height - margin.top - margin.bottom;
 
+        var xDomain = xScale.domain || getDomain(data, xValue);
+        var yDomain = yScale.domain || getDomain(data, yValue);
+
+        if (xScale.sort) {
+          xDomain.sort(typeof xScale.sort === "function" ? xScale.sort : ascending);
+        }
+        if (yScale.sort) {
+          yDomain.sort(typeof yScale.sort === "function" ? yScale.sort : ascending);
+        }
+        if (xScale.reverse) { xDomain.reverse(); }
+        if (yScale.reverse) { yDomain.reverse(); }
+
+        var x = d3.scale.ordinal()
+          .domain(xDomain)
+          .rangeBands([0, width], rectPadding);
+
+        var y = d3.scale.ordinal()
+          .domain(yDomain)
+          .rangeBands([0, height], rectPadding);
+
         data.forEach(function (d, i) {
-          d.x = rect.x.call(data, d, i);
-          d.y = rect.y.call(data, d, i);
+          d.dx = xValue.call(data, d, i);
+          d.dy = yValue.call(data, d, i);
           d.fill = rect.fill.call(data, d, i);
           d.opacity = rect.opacity.call(data, d, i);
         });
 
-        var padding = Object.keys(margin).map(function (key) {
-          return margin[key];
-        }).join("px ") + "px";
+        var padding = Object.keys(margin)
+          .map(function (key) {
+            return margin[key];
+          }).join("px ") + "px";
 
         if (isCanvas) {
           var canvasRects = canvasRect()
-            .cssClass(rect.cssClass)
-            .x(function (d) { return xScale(d.x); })
-            .y(function (d) { return yScale(d.y); })
-            .width(xScale.rangeBand())
-            .height(yScale.rangeBand())
-            .fillStyle(function (d) { return color(d.fill); })
-            .opacity(function (d) { return d.opacity; })
-            .strokeStyle(function (d) { return color(d.fill); })
-            .lineWidth(rect.strokeWidth);
+            .class(rect.class)
+            .x(function (d) { return x(d.dx); })
+            .y(function (d) { return y(d.dy); })
+            .width(x.rangeBand())
+            .height(y.rangeBand())
+            .fillStyle(rect.fill)
+            .strokeStyle(rect.stroke)
+            .lineWidth(rect.strokeWidth)
+            .opacity(rect.opacity);
 
           canvas = d3.select(this).append("canvas")
-            .attr("width", width + margin.left + margin.right)
-            .attr("height", height + margin.top + margin.bottom)
+            .attr("width", width)
+            .attr("height", height)
             .style("padding", padding);
 
           canvas.datum(data).call(canvasRects);
         }
 
-        var svg = d3.select(this).append("svg")
-          .attr("width", width + margin.left + margin.right)
-          .attr("height", height + margin.top + margin.bottom)
-          .style("padding", padding)
-          .on("mousemove", function (d, i) {
-            var x = d3.event.clientX;
-            var y = d3.event.clientY;
-          });
+        var svgEvents = events().listeners(listeners);
 
-        var g = svg.append("g")
-          .attr("transform", "translate(0,0)");
-          //.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+        var svg = d3.select(this).append("svg")
+          .attr("width", width)
+          .attr("height", height)
+          .style("padding", padding)
+          .call(svgEvents);
+
+        var g = svg.append("g").attr("transform", "translate(0,0)");
 
         if (!isCanvas) {
           var svgRects = svgRect()
-            .cssClass(rect.cssClass)
-            .x(function (d) { return xScale(d.x); })
-            .y(function (d) { return yScale(d.y); })
-            .width(xScale.rangeBand())
-            .height(yScale.rangeBand())
-            .fill(function (d) { return color(d.fill); })
-            .stroke(function (d) { return color(d.fill); })
+            .class(rect.class)
+            .x(function (d) { return x(d.dx); })
+            .y(function (d) { return y(d.dy); })
+            .width(x.rangeBand())
+            .height(y.rangeBand())
+            .fill(rect.fill)
+            .stroke(rect.stroke)
             .strokeWidth(rect.strokeWidth)
-            .opacity(function (d) { return d.opacity; });
+            .opacity(rect.opacity);
 
-          g.datum(data).call(svgRects);
+          g.append("g")
+            .attr("class", "heat-rect")
+            .datum(data).call(svgRects);
         }
 
-        if (axisX.show) {
-          var xAxis = axis()
-            .scale(xScale)
-            .transform("translate(0," + height + ")")
-            .gClass(axisX.axisClass)
+        if (xAxis.show) {
+          var axisX = axis()
+            .scale(x)
+            .class(xAxis.class)
+            .transform(xAxis.transform || "translate(0," + height + ")")
             .tick({
-              values: xScale.domain()
+              values: x.domain()
                 .filter(function (d, i) {
-                  return !(i % axisX.filterTicksBy);
+                  return (i % xAxis.filterTicksBy) === 0;
                 })
             })
-            .title({
-              x: axisX.x,
-              y: axisY.y,
-              dy: axisX.dy,
-              anchor: axisX.textAnchor,
-              text: axisX.title
-            });
+            .tickText(xAxis.tickText)
+            .title(xAxis.title);
 
-          g.call(xAxis);
+          g.call(axisX);
 
           // Modifying the x axis tick labels
-          g.selectAll(".x.axis .tick text")
+          g.selectAll(".tick text")
             .attr("x", -10)
             .attr("y", -4)
-            .attr("transform", "rotate(" + axisX.tickRotate + ")")
+            .attr("transform", "rotate(" + xAxis.tickRotate + ")")
             .style("text-anchor", "end");
         }
 
-        if (axisY.show) {
-          var yAxis = axis()
-            .scale(yScale)
-            .gClass(axisY.axisClass)
+        if (yAxis.show) {
+          var axisY = axis()
+            .scale(y)
+            .class(yAxis.class)
             .orient("left")
             .tick({
-              values: yScale.domain()
+              values: y.domain()
                 .filter(function (d, i) {
-                  return !(i % axisY.filterTicksBy);
+                  return (i % yAxis.filterTicksBy) === 0;
                 })
             })
-            .title({
-              titleClass: axisY.titleClass,
-              x: axisY.x,
-              y: axisY.y,
-              dy: axisY.dy,
-              anchor: axisY.textAnchor,
-              text: axisY.title
-            });
+            .tickText(yAxis.tickText)
+            .title(yAxis.title);
 
-          g.call(yAxis);
+          g.call(axisY);
         }
       });
     }
 
+    // Sort ascending
+    function ascending(prev, cur) {
+      if (prev > cur) { return 1; }
+      if (prev < cur) { return -1; }
+      return 0;
+    }
+
+    // Creates a unique array of items
     function getDomain(data, accessor) {
       return data
         .map(function (item) {
-          return item[accessor];
-        })
-        .sort(function (prev, cur) {
-          if (prev > cur) return 1;
-          if (prev < cur) return -1;
-          return 0;
+          return accessor.call(this, item);
         })
         .filter(function (item, index, array) {
           return array.indexOf(item) === index;
@@ -12836,238 +11527,393 @@ define('src/modules/chart/heatmap',['require','d3','src/modules/element/svg/rect
     };
 
     chart.width = function (_) {
-      if (!arguments.length) return width;
-      width = _;
+      if (!arguments.length) { return width; }
+      width = typeof _ !== "number" ? width : _;
       return chart;
     };
 
     chart.height = function (_) {
-      if (!arguments.length) return height;
-      height = _;
+      if (!arguments.length) { return height; }
+      height = typeof _ !== "number" ? height : _;
       return chart;
     };
 
-    chart.color = function (_) {
-      if (!arguments.length) return color;
-      color = _;
+    chart.x = function (_) {
+      if (!arguments.length) { return xValue; }
+      xValue = valuator(_);
+      return chart;
+    };
+
+    chart.y = function (_) {
+      if (!arguments.length) { return yValue; }
+      yValue = valuator(_);
+      return chart;
+    };
+
+    chart.xScale = function (_) {
+      if (!arguments.length) { return xScale; }
+      xScale.domain = typeof _.domain !== "undefined" ? _.domain : xScale.domain;
+      xScale.reverse = typeof _.reverse !== "undefined" ? _.reverse : xScale.reverse;
+      xScale.sort = typeof _.sort !== "undefined" ? _.sort : xScale.sort;
+      return chart;
+    };
+
+    chart.yScale = function (_) {
+      if (!arguments.length) { return yScale; }
+      yScale.domain = typeof _.domain !== "undefined" ? _.domain : yScale.domain;
+      yScale.reverse = typeof _.reverse !== "undefined" ? _.reverse : yScale.reverse;
+      yScale.sort = typeof _.sort !== "undefined" ? _.sort : yScale.sort;
+      return chart;
+    };
+
+    chart.padding = function (_) {
+      if (!arguments.length) { return rectPadding; }
+      rectPadding = typeof _ !== "number" ? rectPadding : _;
       return chart;
     };
 
     chart.canvas = function (_) {
-      if (!arguments.length) return isCanvas;
-      isCanvas = _;
+      if (!arguments.length) { return isCanvas; }
+      isCanvas = typeof _ === "boolean" ? _ : false;
       return chart;
     };
 
     chart.rect = function (_) {
       if (!arguments.length) { return rect; }
-      rect.x = typeof _.x !== "undefined" ? _.x : rect.x;
-      rect.y = typeof _.y !== "undefined" ? _.y : rect.y;
-      rect.color = typeof _.color !== "undefined" ? _.color : rect.color;
-      rect.cssClass = typeof _.cssClass !== "undefined" ? _.cssClass : rect.cssClass;
+      rect.class = typeof _.class !== "undefined" ? _.class : rect.class;
+      rect.stroke = typeof _.stroke !== "undefined" ? _.stroke : rect.stroke;
       rect.strokeWidth = typeof _.strokeWidth !== "undefined" ? _.strokeWidth : rect.strokeWidth;
-      rect.fill = typeof _.fill !== "undefined" ? _.fill : rect.fill;
-      rect.opacity = typeof _.opacity !== "undefined" ? _.opacity : rect.opacity;
-      rect.padding = typeof _.padding !== "undefined" ? _.padding : rect.padding;
+      rect.fill = typeof _.fill !== "undefined" ? d3.functor(_.fill) : rect.fill;
+      rect.opacity = typeof _.opacity !== "undefined" ? d3.functor(_.opacity) : rect.opacity;
       return chart;
     };
 
     chart.xAxis = function (_) {
-      if (!arguments.length) { return axisX; }
-      axisX.show = typeof _.show !== "undefined" ? _.show : axisX.show;
-      axisX.axisClass = typeof _.axisClass !== "undefined" ? _.axisClass : axisX.axisClass;
-      axisX.titleClass = typeof _.titleClass !== "undefined" ? _.titleClass : axisX.titleClass;
-      axisX.x = typeof _.x !== "undefined" ? _.x : axisX.x;
-      axisX.y = typeof _.y !== "undefined" ? _.y : axisX.y;
-      axisX.dy = typeof _.dy !== "undefined" ? _.dy : axisX.dy;
-      axisX.tickValues = typeof _.tickValues !== "undefined" ? _.tickValues: axisX.tickValues;
-      axisX.textAnchor = typeof _.textAnchor !== "undefined" ? _.textAnchor : axisX.textAnchor;
-      axisX.title = typeof _.title !== "undefined" ? _.title : axisX.title;
-      axisX.filterTicksBy = typeof _.filterTicksBy !== "undefined" ? _.filterTicksBy : axisX.filterTicksBy;
-      axisX.tickRotate = typeof _.tickRotate !== "undefined" ? _.tickRotate : axisX.tickRotate;
+      if (!arguments.length) { return xAxis; }
+      xAxis.show = typeof _.show !== "undefined" ? _.show : xAxis.show;
+      xAxis.class = typeof _.class !== "undefined" ? _.class : xAxis.class;
+      xAxis.transform = typeof _.transform !== "undefined" ? _.transform : xAxis.transform;
+      xAxis.tick = typeof _.tick !== "undefined" ? _.tick : xAxis.tick;
+      xAxis.tickText = typeof _.tickText!== "undefined" ? _.tickText: xAxis.tickText;
+      xAxis.title = typeof _.title !== "undefined" ? _.title : xAxis.title;
+      xAxis.filterTicksBy = typeof _.filterTicksBy !== "undefined" ? _.filterTicksBy : xAxis.filterTicksBy;
+      xAxis.tickRotate = typeof _.tickRotate !== "undefined" ? _.tickRotate : xAxis.tickRotate;
       return chart;
     };
 
     chart.yAxis = function (_) {
-      if (!arguments.length) { return axisY; }
-      axisY.show = typeof _.show !== "undefined" ? _.show : axisY.show;
-      axisY.axisClass = typeof _.axisClass !== "undefined" ? _.axisClass : axisY.axisClass;
-      axisY.titleClass = typeof _.titleClass !== "undefined" ? _.titleClass : axisY.titleClass;
-      axisY.x = typeof _.x !== "undefined" ? _.x : axisY.x;
-      axisY.y = typeof _.y !== "undefined" ? _.y : axisY.y;
-      axisY.dy = typeof _.dy !== "undefined" ? _.dy : axisY.dy;
-      axisY.tickValues = typeof _.tickValues !== "undefined" ? _.tickValues: axisY.tickValues;
-      axisY.textAnchor = typeof _.textAnchor !== "undefined" ? _.textAnchor : axisY.textAnchor;
-      axisY.title = typeof _.title !== "undefined" ? _.title : axisY.title;
-      axisY.filterTicksBy = typeof _.filterTicksBy !== "undefined" ? _.filterTicksBy : axisY.filterTicksBy;
+      if (!arguments.length) { return yAxis; }
+      yAxis.show = typeof _.show !== "undefined" ? _.show : yAxis.show;
+      yAxis.gridlines = typeof _.gridlines !== "undefined" ? _.gridlines : yAxis.gridlines;
+      yAxis.class = typeof _.class !== "undefined" ? _.class : yAxis.class;
+      yAxis.transform = typeof _.transform !== "undefined" ? _.transform : yAxis.transform;
+      yAxis.tick = typeof _.tick !== "undefined" ? _.tick : yAxis.tick;
+      yAxis.tickText = typeof _.tickText!== "undefined" ? _.tickText: yAxis.tickText;
+      yAxis.title = typeof _.title !== "undefined" ? _.title : yAxis.title;
+      yAxis.filterTicksBy = typeof _.filterTicksBy !== "undefined" ? _.filterTicksBy : yAxis.filterTicksBy;
       return chart;
     };
+
+    chart.listeners = function (_) {
+      if (!arguments.length) { return listeners; }
+      listeners = typeof _ !== "object" ? listeners : _;
+      return chart;
+    };
+
+    chart.on = addEventListener(chart);
+
+    chart.off = removeEventListener(chart);
 
     return chart;
-  }
+  };
 });
 
-define('src/modules/chart/histogram',['require','d3'],function (require) {
+define('src/modules/element/svg/path',['require','d3'],function (require) {
   var d3 = require("d3");
 
-  return function histogram() {
-    var margin = {top: 20, right: 20, bottom: 20, left: 50};
-    var width = 760 - margin.left - margin.right;
-    var height = 120 - margin.top - margin.bottom;
-    var color = d3.scale.category20c();
-    var xValue = function (d) { return d[0]; };
-    var yValue = function (d) { return d[1]; };
-    var offset = "zero";
-    var xAxis = d3.svg.axis().orient("bottom").ticks(5);
-    var yAxis = d3.svg.axis().orient("left");
-    var xScale = d3.time.scale.utc().range([0, width]);
-    var yScale = d3.scale.linear().range([height, 0]).nice();
-    var xDomain = function (data) {
-      return d3.extent(data, function (d) { return d[0]; });
+  return function path() {
+    var accessor = function (d) { return d; };
+    var pathGenerator = null;
+
+    // Options
+    var cssClass = "path";
+    var transform = "translate(0,0)";
+    var fill = "none";
+    var stroke = function (d, i) { return d3.scale.category10()(i); };
+    var strokeWidth = 1;
+    var opacity = 1;
+
+    function element(selection) {
+      selection.each(function (data, index) {
+        data = accessor.call(this, data, index);
+
+        var path = d3.select(this)
+          .selectAll("." + cssClass)
+          .data(data);
+
+        path.exit().remove();
+
+        path.enter().append("path");
+
+        path
+          .attr("transform", transform)
+          .attr("class", cssClass)
+          .attr("fill", fill)
+          .attr("stroke", stroke)
+          .attr("stroke-width", strokeWidth)
+          .attr("d", pathGenerator)
+          .style("opacity", opacity);
+      });
+    }
+
+    // Public API
+    element.accessor = function (_) {
+      if (!arguments.length) { return accessor; }
+      accessor = _;
+      return element;
     };
-    var yDomain = function (data) {
-      return [
-        Math.min(0, getYStackExtent.call(data, "min")),
-        Math.max(0, getYStackExtent.call(data, "max"))
-      ];
+
+    element.pathGenerator = function (_) {
+      if (!arguments.length) { return pathGenerator; }
+      pathGenerator = _;
+      return element;
     };
-    var dispatch = d3.dispatch("brush", "hover", "mouseover", "mouseout");
 
-    // Axis options
-    var showXAxis = true;
-    var showYAxis = true;
-    var xAxisTitle = "";
-    var yAxisTitle = "";
+    element.class = function (_) {
+      if (!arguments.length) { return cssClass; }
+      cssClass = _;
+      return element;
+    };
 
-    // Histogram options
-    var stackClass;
-    var barClass;
-    var barFill;
+    element.transform = function (_) {
+      if (!arguments.length) { return transform; }
+      transform = _;
+      return element;
+    };
 
-    function chart(selection) {
-      selection.each(function (data) {
-        var stack = d3.layout.stack().x(xValue).y(yValue).offset(offset || "zero");
-        var layers = stack(data);
-        var n = layers.length; // number of layers
-        var svg;
-        var g;
-        var stackLayer;
-        var bars;
+    element.fill = function (_) {
+      if (!arguments.length) { return fill; }
+      fill = _;
+      return element;
+    };
 
-        layers = layers.map(function (d) {
-          return d.map(function (e, i) {
-            return [xValue.call(d, e, i), yValue.call(d, e, i), y0.call(d, e, i)];
-          });
+    element.opacity = function (_) {
+      if (!arguments.length) { return opacity; }
+      opacity = _;
+      return element;
+    };
+
+    element.stroke = function (_) {
+      if (!arguments.length) { return stroke; }
+      stroke = d3.functor(_);
+      return element;
+    };
+
+    element.strokeWidth = function (_) {
+      if (!arguments.length) { return strokeWidth; }
+      strokeWidth = _;
+      return element;
+    };
+
+    return element;
+  };
+});
+
+define('src/modules/element/svg/text',['require','d3'],function (require) {
+  var d3 = require("d3");
+
+  return function text() {
+    var accessor = function (d) { return d; };
+    var x = function (d) { return d.x; };
+    var y = function (d) { return d.y; };
+    var dx = 0;
+    var dy = 0;
+    var transform = null;
+
+    // Options
+    var cssClass = "text";
+    var fill = "#ffffff";
+    var anchor = "middle";
+    var texts = "";
+
+    function element(selection) {
+      selection.each(function (data, index) {
+        data = accessor.call(this, data, index);
+
+        var text = d3.select(this)
+          .selectAll("." + cssClass)
+          .data(data);
+
+        text.exit().remove();
+
+        text.enter().append("text");
+
+        text
+          .attr("class", cssClass)
+          .attr("transform", transform)
+          .attr("x", x)
+          .attr("y", y)
+          .attr("dx", dx)
+          .attr("dy", dy)
+          .attr("fill", fill)
+          .style("text-anchor", anchor)
+          .text(texts);
+      });
+    }
+
+    // Public API
+    element.accessor = function (_) {
+      if (!arguments.length) { return accessor; }
+      accessor = _;
+      return element;
+    };
+
+    element.x = function (_) {
+      if (!arguments.length) { return x; }
+      x = _;
+      return element;
+    };
+
+    element.y = function (_) {
+      if (!arguments.length) { return y; }
+      y = _;
+      return element;
+    };
+
+    element.dx = function (_) {
+      if (!arguments.length) { return dx; }
+      dx = _;
+      return element;
+    };
+
+    element.dy = function (_) {
+      if (!arguments.length) { return dy; }
+      dy = _;
+      return element;
+    };
+
+    element.transform = function (_) {
+      if (!arguments.length) { return transform; }
+      transform = _;
+      return element;
+    };
+
+    element.class= function (_) {
+      if (!arguments.length) { return cssClass; }
+      cssClass = _;
+      return element;
+    };
+
+    element.anchor = function (_) {
+      if (!arguments.length) { return anchor; }
+      anchor = _;
+      return element;
+    };
+
+    element.fill = function (_) {
+      if (!arguments.length) { return fill; }
+      fill = _;
+      return element;
+    };
+
+    element.text = function (_) {
+      if (!arguments.length) { return texts; }
+      texts = _;
+      return element;
+    };
+
+    return element;
+  };
+});
+
+define('src/modules/chart/pie',['require','d3','src/modules/element/svg/path','src/modules/element/svg/text','src/modules/component/events/events','valuator','src/modules/helpers/add_event_listener','src/modules/helpers/remove_event_listener'],function (require) {
+  var d3 = require("d3");
+  var path = require("src/modules/element/svg/path");
+  var textElement = require("src/modules/element/svg/text");
+  var events = require("src/modules/component/events/events");
+  var valuator = require("valuator");
+  var addEventListener = require("src/modules/helpers/add_event_listener");
+  var removeEventListener = require("src/modules/helpers/remove_event_listener");
+
+  return function pieChart() {
+    // Private variables
+    var width = 300;
+    var height = 300;
+    var color = d3.scale.category10();
+    var outerRadius = null;
+    var innerRadius = 0;
+    var sort = null;
+    var value = function (d) { return d.x; };
+    var label = function (d) { return d.name; };
+
+    var pieClass = "pie";
+    var fill = function (d, i) {
+      return color(label.call(this, d.data, i));
+    };
+    var stroke = "#ffffff";
+
+    // Text options
+    var text = {
+      fill: "#ffffff",
+      dy: ".35em",
+      anchor: "middle",
+      transform: null
+    };
+
+    var listeners = {};
+
+    function chart (selection) {
+      selection.each(function (data, index) {
+        var pie = d3.layout.pie()
+          .sort(sort)
+          .value(value);
+
+        data = pie(data).map(function (d) {
+          return [d];
         });
 
-        xScale.domain(xDomain.call(mapDomain(layers)));
-        yScale.domain(yDomain.call(mapDomain(layers)));
+        var radius = Math.min(width, height) / 2;
 
-        svg = d3.select(this).append("svg")
-          .data([layers])
-          .attr("width", width + margin.left + margin.right)
-          .attr("height", height + margin.top + margin.bottom);
+        var svgEvents = events().listeners(listeners);
 
-        g = svg.append("g")
-          .attr("transform", "translate(" + margin.left + ", " + margin.top + ")");
+        var svg = d3.select(this).append("svg")
+          .attr("width", width)
+          .attr("height", height)
+          .call(svgEvents);
 
-        stackLayer = g.selectAll(".layer")
-          .data(function (d) { return d; })
-          .enter().append("g")
-          .attr("class", stackClass);
+        var g = svg.append("g")
+          .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
 
-        // Enter
-        bars = stackLayer.selectAll("rect")
-          .data(function (d) { return d; })
-          .enter().append("rect")
-          .attr("class", barClass)
-          .attr("fill", barFill);
+        var arc = d3.svg.arc()
+          .outerRadius(outerRadius || radius)
+          .innerRadius(innerRadius);
 
-        // Update
-        bars.attr("x", function (d, i, j) {
-            if (offset === "grouped") {
-              return xScale(d[0]) + xScale.rangeBand() / n * j;
-            }
-            return xScale(d[0]);
+        var piePath = path()
+          .pathGenerator(arc)
+          .class(pieClass)
+          .fill(fill)
+          .stroke(stroke);
+
+        var pieText = textElement()
+          .transform(text.transform || function (d) {
+            return "translate(" + arc.centroid(d) + ")";
           })
-          .attr("width", function () {
-            if (offset === "grouped") {
-              return xScale.rangeBand() / n;
-            }
-            return xScale.rangeBand();
-          })
-          .attr("y", function (d) {
-            if (offset === "grouped") {
-              return yScale(d.y);
-            }
-            return yScale(d.y0) - yScale(d.y0 + d.y);
-          })
-          .attr("height", function (d) {
-            if (offset === "grouped") {
-              return height - yScale(d.y);
-            }
-            return yScale(d.y0) - yScale(d.y0 + d.y);
+          .dy(text.dy)
+          .anchor(text.anchor)
+          .fill(text.fill)
+          .text(function (d, i) {
+            return label.call(this, d.data, i);
           });
 
-        // Exit
-        bars.exit().remove();
-
-        g.append("g").attr("class", "x axis");
-        g.append("g").attr("class", "y axis");
-
-        if (showXAxis) {
-          g.select(".x.axis")
-            .attr("transform", "translate(0," + yScale.range()[0] + ")")
-            .call(xAxis.scale(xScale))
-            .append("text")
-            .attr("y", 6)
-            .attr("dy", ".71em")
-            .style("text-anchor", "end")
-            .text(xAxisTitle);
-        }
-
-        if (showYAxis) {
-          g.select(".y.axis")
-            .call(yAxis.scale(yScale))
-            .append("text")
-            .attr("transform", "rotate(-90)")
-            .attr("y", 6)
-            .attr("dy", ".71em")
-            .style("text-anchor", "end")
-            .text(yAxisTitle);
-        }
+        g.selectAll("groups")
+          .data(data)
+          .enter().append("g")
+          .call(piePath)
+          .call(pieText);
       });
     }
 
-    function y0(d) {
-      return d.y0;
-    }
-
-    function Y(d) {
-      return yScale(d.y0 + d.y);
-    }
-
-    function mapDomain(data) {
-      return data.reduce(function (a, b) {
-        return a.concat(b);
-      });
-    }
-
-    function getYStackExtent(data, extent) {
-      return d3[extent](data, function (d) {
-        return d3[extent](d, Y);
-      });
-    }
-
-    chart.margin = function (_) {
-      if (!arguments.length) { return margin; }
-      margin.top = typeof _.top !== "undefined" ? _.top : margin.top;
-      margin.right = typeof _.right !== "undefined" ? _.right : margin.right;
-      margin.bottom = typeof _.bottom !== "undefined" ? _.bottom : margin.bottom;
-      margin.left = typeof _.left !== "undefined" ? _.left : margin.left;
-      return chart;
-    };
-
+    // Public API
     chart.width = function (_) {
       if (!arguments.length) { return width; }
       width = _;
@@ -13086,119 +11932,767 @@ define('src/modules/chart/histogram',['require','d3'],function (require) {
       return chart;
     };
 
-    chart.x = function (_) {
-      if (!arguments.length) { return xValue; }
-      xValue = _;
+    chart.outerRadius = function (_) {
+      if (!arguments.length) { return outerRadius; }
+      outerRadius = _;
       return chart;
     };
 
-    chart.y = function (_) {
-      if (!arguments.length) { return yValue; }
-      yValue = _;
+    chart.innerRadius = function (_) {
+      if (!arguments.length) { return innerRadius; }
+      innerRadius = _;
       return chart;
     };
 
-    chart.offset = function (_) {
-      if (!arguments.length) { return offset; }
-      offset = _;
+    chart.sort = function (_) {
+      if (!arguments.length) { return sort; }
+      sort = _;
       return chart;
     };
 
-    chart.xAxis = function (_) {
-      if (!arguments.length) { return xAxis; }
-      xAxis = _;
+    chart.value = function (_) {
+      if (!arguments.length) { return value; }
+      value = valuator(_);
       return chart;
     };
 
-    chart.yAxis = function (_) {
-      if (!arguments.length) { return yAxis; }
-      yAxis = _;
+    chart.label = function (_) {
+      if (!arguments.length) { return label; }
+      label = valuator(_);
       return chart;
     };
 
-    chart.xScale = function (_) {
-      if (!arguments.length) { return xScale; }
-      xScale = _;
+    chart.class = function (_) {
+      if (!arguments.length) { return pieClass; }
+      pieClass = _;
       return chart;
     };
 
-    chart.yScale = function (_) {
-      if (!arguments.length) { return yScale; }
-      yScale = _;
+    chart.fill = function (_) {
+      if (!arguments.length) { return fill; }
+      fill = _;
       return chart;
     };
 
-    chart.xDomain = function (_) {
-      if (!arguments.length) { return xDomain; }
-      xDomain = _;
+    chart.stroke = function (_) {
+      if (!arguments.length) { return stroke; }
+      stroke = _;
       return chart;
     };
 
-    chart.yDomain = function (_) {
-      if (!arguments.length) { return yDomain; }
-      yDomain = _;
+    chart.text = function (_) {
+      if (!arguments.length) { return text; }
+      text.fill = typeof _.fill !== "undefined" ? _.fill : text.fill;
+      text.anchor = typeof _.anchor !== "undefined" ? _.anchor: text.anchor;
+      text.dy = typeof _.dy !== "undefined" ? _.dy : text.dy;
+      text.transform = typeof _.transform !== "undefined" ? _.transform : text.transform;
       return chart;
     };
 
-    chart.dispatch = function (_) {
-      if (!arguments.length) { return dispatch; }
-      dispatch = _;
+    chart.listeners = function (_) {
+      if (!arguments.length) { return listeners; }
+      listeners = typeof _ !== "object" ? listeners : _;
       return chart;
     };
 
-    chart.showXAxis = function (_) {
-      if (!arguments.length) { return showXAxis; }
-      showXAxis = _;
-      return chart;
-    };
+    chart.on = addEventListener(chart);
 
-    chart.showYAxis = function (_) {
-      if (!arguments.length) { return showYAxis; }
-      showYAxis = _;
-      return chart;
-    };
-
-    chart.xAxisTitle = function (_) {
-      if (!arguments.length) { return xAxisTitle; }
-      xAxisTitle = _;
-      return chart;
-    };
-
-    chart.yAxisTitle = function (_) {
-      if (!arguments.length) { return yAxisTitle; }
-      yAxisTitle = _;
-      return chart;
-    };
+    chart.off = removeEventListener(chart);
 
     return chart;
   };
 });
-define('src/modules/element/svg/circle',['require','d3','src/modules/component/events'],function (require) {
+define('functor',['require','d3','builder'],function (require) {
   var d3 = require("d3");
-  var events = require("src/modules/component/events");
+  var builder = require("builder");
 
-  return function circle() {
-    var cx = function (d) { return d.x; };
-    var cy = function (d) { return d.y; };
-    var radius = 5;
-    var color = d3.scale.category10();
-    var values = null;
+  /**
+   * Builds and return a function based on key value pairs
+   * and calls it on a d3 selection.
+   */
+  return function functor() {
+    var func = function () {};
+    var opts = {};
 
-    // Options
-    var cssClass = "circles";
-    var fill = null;
-    var stroke = null;
-    var strokeWidth = 0;
-    var opacity = null;
-    var listeners = {};
+    function constructor(selection) {
+      selection.each(function () {
+        d3.select(this).call(builder(opts, func));
+      });
+    }
+
+    constructor.function = function (_) {
+      if (!arguments.length) { return func; }
+      func = typeof _ !== "function" ? func : _;
+      return constructor;
+    };
+
+    constructor.options = function (_) {
+      if (!arguments.length) { return opts; }
+      opts = typeof _ !== "object" ? opts : _;
+      return constructor;
+    };
+
+    return constructor;
+  };
+});
+
+define('src/modules/helpers/scaletor',['require','d3'],function (require) {
+  var d3 = require("d3");
+
+  return function (_) {
+    if (typeof _ === "function") { return _; }
+    if (typeof _ === "string") {
+      if (_ === "time") { return d3[_].scale(); }
+      if (_ === "time.utc") { return d3.time.scale.utc(); }
+      return typeof d3.scale[_] === "function" ? d3.scale[_]() : d3.scale.linear();
+    }
+    return !_ || typeof _ !== "function" ? d3.scale.linear() : _;
+  };
+});
+define('src/modules/helpers/timeparser',[],function () {
+  var timeNotation = {
+    s: "second",
+    m: "minute",
+    h: "hour",
+    d: "day",
+    w: "week",
+    M: "month",
+    y: "year"
+  };
+
+  /**
+   * Function that returns the proper time string
+   * from its abbreviated form.
+   * Valid str === [0-9][time abbr], e.g. "20s"
+   */
+  return function (str) {
+    if (typeof str !== "string") { return; }
+
+    var abbr = str.split(parseFloat(str))[1];
+
+    if (Object.keys(timeNotation).indexOf(abbr) === -1) {
+      throw new Error("Invalid time string " + str);
+    }
+
+    return timeNotation[abbr];
+  };
+});
+define('src/modules/component/clippath',['require','d3'],function (require) {
+  var d3 = require("d3");
+
+  return function clipPath() {
+    var id = uniqueID();
+    var transform = "translate(0,0)";
+    var x = 0;
+    var y = 0;
+    var width = 0;
+    var height = 0;
+
+    function element(selection) {
+      selection.each(function () {
+        d3.select(this)
+          .append("clipPath")
+          .attr("id", id)
+          .attr("transform", transform)
+          .append("rect")
+          .attr("x", x)
+          .attr("y", y)
+          .attr("width", width)
+          .attr("height", height);
+      });
+    }
+
+    function uniqueID() {
+      var randomNumber = Math.floor(Math.random() * 100);
+      return "uniqueId_" + randomNumber;
+    }
+
+    element.id = function (_) {
+      if (!arguments.length) { return id; }
+      id = _;
+      return element;
+    };
+
+    element.transform = function (_) {
+      if (!arguments.length) { return transform; }
+      transform = _;
+      return element;
+    };
+
+    element.x = function (_) {
+      if (!arguments.length) { return x; }
+      x = _;
+      return element;
+    };
+
+    element.y = function (_) {
+      if (!arguments.length) { return y; }
+      y = _;
+      return element;
+    };
+
+    element.width = function (_) {
+      if (!arguments.length) { return width; }
+      width = _;
+      return element;
+    };
+
+    element.height = function (_) {
+      if (!arguments.length) { return height; }
+      height = _;
+      return element;
+    };
+
+    return element;
+  };
+});
+
+define('src/modules/component/events/brush',['require','d3'],function (require) {
+  var d3 = require("d3");
+
+  /**
+   * Creates a brush component and binds it to an <svg></svg>.
+   */
+  return function brush() {
+    // Private variables
+    var margin = { top: 0, right: 0, bottom: 0, left: 0 };
+    var cssClass = "brush";
+    var opacity = 0.2;
+    var width = null;
+    var height = null;
+    var xScale = null;
+    var yScale = null;
+    var extent = null;
+    var clamp = false;
+    var brushStartCallback = [];
+    var brushCallback = [];
+    var brushEndCallback = [];
+
+    function component(selection) {
+      selection.each(function (data, index) {
+        width = width - margin.left - margin.right;
+        height = height - margin.top - margin.bottom;
+
+        var brush = d3.svg.brush()
+          .on("brushstart", function () {
+            brushStartCallback.forEach(function (listener) {
+              listener.call(this, brush, data, index);
+            });
+          })
+          .on("brush", function () {
+            brushCallback.forEach(function (listener) {
+              listener.call(this, brush, data, index);
+            });
+          })
+          .on("brushend", function () {
+            brushEndCallback.forEach(function (listener) {
+              listener.call(this, brush, data, index);
+
+              // Clear brush
+              d3.selectAll("g." + cssClass)
+                .call(brush.clear());
+            });
+          });
+
+        if (xScale) { brush.x(xScale); }
+        if (yScale) { brush.y(yScale); }
+        if (extent) { brush.extent(extent); }
+        if (clamp) { brush.clamp(clamp); }
+
+        var brushG = d3.select(this).append("g")
+          .attr("class", cssClass)
+          .attr("opacity", opacity)
+          .call(brush)
+          .selectAll("rect");
+
+        if (width) { brushG.attr("width", width); }
+        if (height) { brushG.attr("height", height); }
+      });
+    }
+
+    // Public API
+    component.margin = function (_) {
+      if (!arguments.length) { return margin; }
+      margin.top = typeof _.top !== "undefined" ? _.top : margin.top;
+      margin.right = typeof _.right !== "undefined" ? _.right : margin.right;
+      margin.bottom = typeof _.bottom !== "undefined" ? _.bottom : margin.bottom;
+      margin.left = typeof _.left !== "undefined" ? _.left : margin.left;
+      return component;
+    };
+
+    component.width = function (_) {
+      if (!arguments.length) { return width; }
+      width = _;
+      return component;
+    };
+
+    component.height = function (_) {
+      if (!arguments.length) { return height; }
+      height = _;
+      return component;
+    };
+
+    component.opacity = function (_) {
+      if (!arguments.length) { return opacity; }
+      opacity = _;
+      return component;
+    };
+
+    component.class = function (_) {
+      if (!arguments.length) { return cssClass; }
+      cssClass = _;
+      return component;
+    };
+
+    component.xScale = function (_) {
+      if (!arguments.length) { return xScale; }
+      xScale = _;
+      return component;
+    };
+
+    component.yScale = function (_) {
+      if (!arguments.length) { return yScale; }
+      yScale = _;
+      return component;
+    };
+
+    component.extent = function (_) {
+      if (!arguments.length) { return extent; }
+      extent = _;
+      return component;
+    };
+
+    component.clamp = function (_) {
+      if (!arguments.length) { return clamp; }
+      clamp = _;
+      return component;
+    };
+
+    component.brushstart = function (_) {
+      if (!arguments.length) { return brushStartCallback; }
+      if (typeof _ === "function") { brushStartCallback.push(_); }
+      else if (Array.isArray(_)) { brushStartCallback = _; }
+      return component;
+    };
+
+    component.brush = function (_) {
+      if (!arguments.length) { return brushCallback; }
+      if (typeof _ === "function") { brushCallback.push(_); }
+      else if (Array.isArray(_)) { brushCallback = _; }
+      return component;
+    };
+
+    component.brushend = function (_) {
+      if (!arguments.length) { return brushEndCallback; }
+      if (typeof _ === "function") { brushEndCallback.push(_); }
+      else if (Array.isArray(_)) { brushEndCallback = _; }
+      return component;
+    };
+
+    return component;
+  };
+});
+define('src/modules/element/svg/line',['require','d3'],function (require) {
+  var d3 = require("d3");
+
+  return function line() {
+    var accessor = function (d) { return d; };
+    var x1 = 0;
+    var x2 = 0;
+    var y1 = 0;
+    var y2 = 0;
+
+    var cssClass = "line";
+    var stroke = colorFill;
+    var strokeWidth = 2;
+    var opacity = 1;
 
     function element(selection) {
       selection.each(function (data, index) {
-        var circleEvents = events()
-          .listeners(listeners);
+        data = accessor.call(this, data, index);
 
-        var circles = d3.select(this).selectAll("circles")
-          .data(values ? values : data);
+        var lines = d3.select(this)
+          .selectAll("." + cssClass)
+          .data(data);
+
+        // Exit
+        lines.exit().remove();
+
+        // Enter
+        lines.enter().append("line");
+
+        // Update
+        lines
+          .attr("class", cssClass)
+          .attr("x1", x1)
+          .attr("x2", x2)
+          .attr("y1", y1)
+          .attr("y2", y2)
+          .attr("stroke", stroke)
+          .attr("stroke-width", strokeWidth)
+          .style("opacity", opacity);
+      });
+    }
+
+    function colorFill(d, i) {
+      return d3.scale.category10()(i);
+    }
+
+    // Public API
+    element.accessor = function (_) {
+      if (!arguments.length) { return accessor; }
+      accessor = _;
+      return element;
+    };
+    
+    element.x1 = function (_) {
+      if (!arguments.length) { return x1; }
+      x1 = _;
+      return element;
+    };
+
+    element.x2 = function (_) {
+      if (!arguments.length) { return x2; }
+      x2 = _;
+      return element;
+    };
+
+    element.y1 = function (_) {
+      if (!arguments.length) { return y1; }
+      y1 = _;
+      return element;
+    };
+
+    element.y2 = function (_) {
+      if (!arguments.length) { return y2; }
+      y2 = _;
+      return element;
+    };
+
+    element.class = function (_) {
+      if (!arguments.length) { return cssClass; }
+      cssClass = _;
+      return element;
+    };
+
+    element.opacity = function (_) {
+      if (!arguments.length) { return opacity; }
+      opacity = _;
+      return element;
+    };
+
+    element.stroke = function (_) {
+      if (!arguments.length) { return stroke; }
+      stroke = _;
+      return element;
+    };
+
+    element.strokeWidth = function (_) {
+      if (!arguments.length) { return strokeWidth; }
+      strokeWidth = _;
+      return element;
+    };
+
+    return element;
+  };
+});
+define('src/modules/component/series/area',['require','d3','src/modules/element/svg/path','builder','valuator'],function (require) {
+  var d3 = require("d3");
+  var path = require("src/modules/element/svg/path");
+  var builder = require("builder");
+  var valuator = require("valuator");
+
+  return function area() {
+    // Private variables
+    var x = function (d) { return d.x; };
+    var y = function (d) { return d.y; };
+    var xScale = d3.time.scale.utc();
+    var yScale = d3.scale.linear();
+    var offset = "zero";
+    var interpolate = "linear";
+    var tension = 0.7;
+    var defined = function (d) { return d.y !== null; };
+    var properties = {
+      class: "area",
+      fill: function (d, i) { return d3.scale.category10()(i); },
+      stroke: function (d, i) { return d3.scale.category10()(i); },
+      strokeWidth: 0,
+      opacity: 1
+    };
+
+    function component(selection) {
+      selection.each(function () {
+        var areas = d3.svg.area().x(X).y0(Y0).y1(Y1)
+          .interpolate(interpolate)
+          .tension(tension)
+          .defined(defined);
+
+        var areaPath = path().pathGenerator(areas);
+
+        d3.select(this)
+          .append("g")
+          .call(builder(properties, areaPath));
+      });
+    }
+
+    function X(d, i) {
+      return xScale(x.call(this, d, i));
+    }
+
+    function Y0(d) {
+      var min = Math.max(0, yScale.domain()[0]);
+      if (offset === "overlap") {
+        return yScale(min);
+      }
+      return yScale(d.y0);
+    }
+
+    function Y1(d, i) {
+      if (offset === "overlap") {
+        return yScale(y.call(this, d, i));
+      }
+      return yScale(d.y0 + y.call(this, d, i));
+    }
+
+    // Public API
+    component.x = function (_) {
+      if (!arguments.length) { return x; }
+      x = valuator(_);
+      return component;
+    };
+
+    component.y = function (_) {
+      if (!arguments.length) { return y; }
+      y = valuator(_);
+      return component;
+    };
+
+    component.xScale = function (_) {
+      if (!arguments.length) { return xScale; }
+      xScale = _;
+      return component;
+    };
+
+    component.yScale = function (_) {
+      if (!arguments.length) { return yScale; }
+      yScale = _;
+      return component;
+    };
+
+    component.offset = function (_) {
+      if (!arguments.length) { return offset; }
+      offset = _;
+      return component;
+    };
+
+    component.interpolate = function (_) {
+      if (!arguments.length) { return interpolate; }
+      interpolate = _;
+      return component;
+    };
+
+    component.tension = function (_) {
+      if (!arguments.length) { return tension; }
+      tension = _;
+      return component;
+    };
+
+    component.defined = function (_) {
+      if (!arguments.length) { return defined; }
+      defined = _;
+      return component;
+    };
+
+    component.properties = function (_) {
+      if (!arguments.length) { return properties; }
+      properties.class = typeof _.class !== "undefined" ? _.class : properties.class;
+      properties.fill = typeof _.fill !== "undefined" ? _.fill : properties.fill;
+      properties.stroke = typeof _.stroke !== "undefined" ? _.stroke : properties.stroke;
+      properties.strokeWidth = typeof _.strokeWidth !== "undefined" ? _.strokeWidth : properties.strokeWidth;
+      properties.opacity = typeof _.opacity !== "undefined" ? _.opacity : properties.opacity;
+      return component;
+    };
+
+    return component;
+  };
+});
+define('src/modules/component/series/bars',['require','d3','src/modules/element/svg/rect','builder','valuator','src/modules/helpers/timeparser'],function (require) {
+  var d3 = require("d3");
+  var rect = require("src/modules/element/svg/rect");
+  var builder = require("builder");
+  var valuator = require("valuator");
+  var parseTime = require("src/modules/helpers/timeparser");
+
+  return function points() {
+    // Private variables
+    var x = function (d) { return d.x; };
+    var y = function (d) { return d.y0 + d.y; };
+    var xScale = d3.time.scale.utc();
+    var yScale = d3.scale.linear();
+    var rx = 0;
+    var ry = 0;
+    var group = false;
+    var interval = "30s";
+    var padding = 0.1;
+    var groupPadding = 0;
+    var properties = {
+      class: "point",
+      fill: function (d, i) { return d3.scale.category10()(i); },
+      stroke: function (d, i) { return d3.scale.category10()(i); },
+      strokeWidth: 0,
+      opacity: 1
+    };
+
+    function component(selection) {
+      selection.each(function (data) {
+        var timeNotation = parseTime(interval);
+        var extent = d3.extent(d3.merge(data), x);
+        var step = parseFloat(interval);
+        var start = extent[0];
+        var stop = d3.time[timeNotation].offset(extent[1], step);
+
+        // Used only to determine the width of bars for time scales
+        var timeScale = d3.scale.ordinal()
+          .domain(d3.time[timeNotation].range(start, stop, step))
+          .rangeBands(xScale.range(), padding, 0);
+
+        var groupScale = d3.scale.ordinal()
+          .domain(d3.range(data.length))
+          .rangeRoundBands([0, timeScale.rangeBand()], groupPadding, 0);
+
+        var j = -1;
+
+        var rects = rect()
+          .x(function (d, i) {
+            if (group) {
+              if (i === 0) { j++; }
+              return xScale(x.call(this, d, i)) + groupScale(j);
+            }
+            return xScale(x.call(this, d, i));
+          })
+          .y(function (d, i) {
+            if (group) {
+              return yScale(y.call(this, d, i));
+            }
+            return yScale(d.y0 + Math.abs(y.call(this, d, i)));
+          })
+          .width(function () {
+            if (group) {
+              return groupScale.rangeBand();
+            }
+            return timeScale.rangeBand();
+          })
+          .height(function (d, i) {
+            return yScale(d.y0) - yScale(d.y0 + Math.abs(y.call(this, d, i)));
+          })
+          .rx(rx)
+          .ry(ry);
+
+        d3.select(this).append("g")
+          .selectAll("g")
+          .data(data)
+          .enter().append("g")
+          .call(builder(properties, rects));
+      });
+    }
+
+    // Public API
+    component.x = function (_) {
+      if (!arguments.length) { return x; }
+      x = valuator(_);
+      return component;
+    };
+
+    component.y = function (_) {
+      if (!arguments.length) { return y; }
+      y = valuator(_);
+      return component;
+    };
+
+    component.rx = function (_) {
+      if (!arguments.length) { return rx; }
+      rx = _;
+      return component;
+    };
+
+    component.ry = function (_) {
+      if (!arguments.length) { return ry; }
+      ry = _;
+      return component;
+    };
+
+    component.interval = function (_) {
+      if (!arguments.length) { return interval; }
+      interval = _;
+      return component;
+    };
+
+    component.group = function (_) {
+      if (!arguments.length) { return group; }
+      group = _;
+      return component;
+    };
+
+    component.padding = function (_) {
+      if (!arguments.length) { return padding; }
+      padding = _;
+      return component;
+    };
+
+    component.groupPadding = function (_) {
+      if (!arguments.length) { return groupPadding; }
+      groupPadding = _;
+      return component;
+    };
+
+    component.xScale = function (_) {
+      if (!arguments.length) { return xScale; }
+      xScale = _;
+      return component;
+    };
+
+    component.yScale = function (_) {
+      if (!arguments.length) { return yScale; }
+      yScale = _;
+      return component;
+    };
+
+    component.properties = function (_) {
+      if (!arguments.length) { return properties; }
+      properties.class = typeof _.class !== "undefined" ? _.class : properties.class;
+      properties.fill = typeof _.fill !== "undefined" ? _.fill : properties.fill;
+      properties.stroke = typeof _.stroke !== "undefined" ? _.stroke : properties.stroke;
+      properties.strokeWidth = typeof _.strokeWidth !== "undefined" ? _.strokeWidth : properties.strokeWidth;
+      properties.opacity = typeof _.opacity !== "undefined" ? _.opacity : properties.opacity;
+      return component;
+    };
+
+    return component;
+  };
+});
+define('src/modules/element/svg/circle',['require','d3'],function (require) {
+  var d3 = require("d3");
+
+  return function circle() {
+    var accessor = function (d) { return d; };
+    var cx = function (d) { return d.x; };
+    var cy = function (d) { return d.y; };
+    var radius = 5;
+
+    // Options
+    var cssClass = "circles";
+    var fill = colorFill;
+    var stroke = colorFill;
+    var strokeWidth = 0;
+    var opacity = null;
+
+    function element(selection) {
+      selection.each(function (data, index) {
+        data = accessor.call(this, data, index);
+
+        var circles = d3.select(this)
+          .selectAll("." + cssClass)
+          .data(data);
 
         // Exit
         circles.exit().remove();
@@ -13210,26 +12704,24 @@ define('src/modules/element/svg/circle',['require','d3','src/modules/component/e
         // Update
         circles
           .attr("class", cssClass)
-          .attr("fill", fill ? fill : colorFill)
-          .attr("stroke", stroke ? stroke : colorFill)
+          .attr("fill", fill)
+          .attr("stroke", stroke)
           .attr("stroke-width", strokeWidth)
           .attr("r", radius)
           .attr("cx", cx)
           .attr("cy", cy)
           .style("opacity", opacity);
-
-        circles.call(circleEvents);
       });
     }
 
     function colorFill (d, i) {
-      return color(i);
+      return d3.scale.category10()(i);
     }
 
     // Public API
-    element.data = function (_) {
-      if (!arguments.length) { return values; }
-      values = _;
+    element.accessor = function (_) {
+      if (!arguments.length) { return accessor; }
+      accessor = _;
       return element;
     };
 
@@ -13251,15 +12743,9 @@ define('src/modules/element/svg/circle',['require','d3','src/modules/component/e
       return element;
     };
 
-    element.cssClass = function (_) {
+    element.class = function (_) {
       if (!arguments.length) { return cssClass; }
       cssClass = _;
-      return element;
-    };
-
-    element.color = function (_) {
-      if (!arguments.length) { return color; }
-      color = _;
       return element;
     };
 
@@ -13287,268 +12773,523 @@ define('src/modules/element/svg/circle',['require','d3','src/modules/component/e
       return element;
     };
 
-    element.listeners = function (_) {
-      if (!arguments.length) { return listeners; }
-      listeners = _;
-      return element;
-    };
-
     return element;
   };
 });
 
-define('src/modules/helpers/api/circles',[],function () {
-  return function (_, circles) {
-    circles.show = typeof _.show !== "undefined" ? _.show : circles.show;
-    circles.groupClass = typeof _.groupClass !== "undefined" ? _.groupClass : circles.groupClass;
-    circles.circleClass = typeof _.circleClass !== "undefined" ? _.circleClass : circles.circleClass;
-    circles.radius = typeof _.radius !== "undefined" ? _.radius : circles.radius;
-    circles.fill = typeof _.fill !== "undefined" ? _.fill : circles.fill;
-    circles.stroke = typeof _.stroke !== "undefined" ? _.stroke : circles.stroke;
-    circles.strokeWidth = typeof _.strokeWidth !== "undefined" ? _.strokeWidth : circles.strokeWidth;
+define('src/modules/component/series/points',['require','d3','src/modules/element/svg/circle','builder','valuator'],function (require) {
+  var d3 = require("d3");
+  var circle = require("src/modules/element/svg/circle");
+  var builder = require("builder");
+  var valuator = require("valuator");
 
-    return circles;
+  return function points() {
+    // Private variables
+    var x = function (d) { return d.x; };
+    var y = function (d) { return d.y; };
+    var xScale = d3.time.scale.utc();
+    var yScale = d3.scale.linear();
+    var radius = 5;
+    var properties = {
+      class: "point",
+      fill: function (d, i) { return d3.scale.category10()(i); },
+      stroke: function (d, i) { return d3.scale.category10()(i); },
+      strokeWidth: 0,
+      opacity: 1
+    };
+
+    function component(selection) {
+      selection.each(function (data) {
+        var circles = circle()
+          .cx(X)
+          .cy(Y)
+          .radius(radius);
+
+        d3.select(this).append("g")
+          .datum(data.reduce(function (a, b) {
+            return a.concat(b);
+          },[]).filter(y))
+          .call(builder(properties, circles));
+      });
+    }
+
+    function X(d, i) {
+      return xScale(x.call(this, d, i));
+    }
+
+    function Y(d, i) {
+      return yScale(y.call(this, d, i));
+    }
+
+    // Public API
+    component.x = function (_) {
+      if (!arguments.length) { return x; }
+      x = valuator(_);
+      return component;
+    };
+
+    component.y = function (_) {
+      if (!arguments.length) { return y; }
+      y = valuator(_);
+      return component;
+    };
+
+    component.radius = function (_) {
+      if (!arguments.length) { return radius; }
+      radius = _;
+      return component;
+    };
+
+    component.xScale = function (_) {
+      if (!arguments.length) { return xScale; }
+      xScale = _;
+      return component;
+    };
+
+    component.yScale = function (_) {
+      if (!arguments.length) { return yScale; }
+      yScale = _;
+      return component;
+    };
+
+    component.properties = function (_) {
+      if (!arguments.length) { return properties; }
+      properties.class = typeof _.class !== "undefined" ? _.class : properties.class;
+      properties.fill = typeof _.fill !== "undefined" ? _.fill : properties.fill;
+      properties.stroke = typeof _.stroke !== "undefined" ? _.stroke : properties.stroke;
+      properties.strokeWidth = typeof _.strokeWidth !== "undefined" ? _.strokeWidth : properties.strokeWidth;
+      properties.opacity = typeof _.opacity !== "undefined" ? _.opacity : properties.opacity;
+      return component;
+    };
+
+    return component;
   };
 });
-define('src/modules/chart/line',['require','d3','src/modules/component/axis','src/modules/element/svg/path','src/modules/element/svg/clipPath','src/modules/element/svg/circle','src/modules/element/svg/line','src/modules/helpers/deep_copy','src/modules/helpers/map_domain','src/modules/helpers/scale_value','src/modules/helpers/options/margin','src/modules/helpers/options/clippath','src/modules/helpers/options/scale','src/modules/helpers/options/x_axis','src/modules/helpers/options/y_axis','src/modules/helpers/options/zero_line','src/modules/helpers/api/axis','src/modules/helpers/api/lines','src/modules/helpers/api/circles','src/modules/helpers/api/margin','src/modules/helpers/api/clippath','src/modules/helpers/api/scale','src/modules/helpers/api/zero_line','src/modules/helpers/add_event_listener','src/modules/helpers/remove_event_listener'],function (require) {
+
+define('src/modules/component/series/line',['require','d3','src/modules/element/svg/path','builder','valuator'],function (require) {
   var d3 = require("d3");
-  var axis = require("src/modules/component/axis");
   var path = require("src/modules/element/svg/path");
-  var clip = require("src/modules/element/svg/clipPath");
-  var circle = require("src/modules/element/svg/circle");
-  var zeroAxisLine = require("src/modules/element/svg/line");
-  var deepCopy = require("src/modules/helpers/deep_copy");
-  var mapDomain = require("src/modules/helpers/map_domain");
-  var scaleValue = require("src/modules/helpers/scale_value");
-  var marginOptions = require("src/modules/helpers/options/margin");
-  var clipPathOptions = require("src/modules/helpers/options/clippath");
-  var scaleOptions = require("src/modules/helpers/options/scale");
-  var xAxisOptions = require("src/modules/helpers/options/x_axis");
-  var yAxisOptions = require("src/modules/helpers/options/y_axis");
-  var zeroLineOptions = require("src/modules/helpers/options/zero_line");
-  var axisAPI = require("src/modules/helpers/api/axis");
-  var linesAPI = require("src/modules/helpers/api/lines");
-  var circlesAPI = require("src/modules/helpers/api/circles");
-  var marginAPI = require("src/modules/helpers/api/margin");
-  var clippathAPI = require("src/modules/helpers/api/clippath");
-  var scaleAPI = require("src/modules/helpers/api/scale");
-  var zeroLineAPI = require("src/modules/helpers/api/zero_line");
+  var builder = require("builder");
+  var valuator = require("valuator");
+
+  return function line() {
+    // Private variables
+    var x = function (d) { return d.x; };
+    var y = function (d) { return d.y; };
+    var xScale = d3.time.scale.utc();
+    var yScale = d3.scale.linear();
+    var interpolate = "linear";
+    var tension = 0.7;
+    var defined = function (d) { return d.y !== null; };
+    var properties = {
+      class: "line",
+      fill: "none",
+      stroke: function (d, i) { return d3.scale.category10()(i); },
+      strokeWidth: 3,
+      opacity: 1
+    };
+
+    function component(selection) {
+      selection.each(function () {
+        var lines = d3.svg.line().x(X).y(Y)
+          .interpolate(interpolate)
+          .tension(tension)
+          .defined(defined);
+
+        var linePath = path().pathGenerator(lines);
+
+        d3.select(this)
+          .append("g")
+          .call(builder(properties, linePath));
+      });
+    }
+
+    function X(d, i) {
+      return xScale(x.call(this, d, i));
+    }
+
+    function Y(d, i) {
+      return yScale(y.call(this, d, i));
+    }
+
+    // Public API
+    component.x = function (_) {
+      if (!arguments.length) { return x; }
+      x = valuator(_);
+      return component;
+    };
+
+    component.y = function (_) {
+      if (!arguments.length) { return y; }
+      y = valuator(_);
+      return component;
+    };
+
+    component.xScale = function (_) {
+      if (!arguments.length) { return xScale; }
+      xScale = _;
+      return component;
+    };
+
+    component.yScale = function (_) {
+      if (!arguments.length) { return yScale; }
+      yScale = _;
+      return component;
+    };
+
+    component.interpolate = function (_) {
+      if (!arguments.length) { return interpolate; }
+      interpolate = _;
+      return component;
+    };
+
+    component.tension = function (_) {
+      if (!arguments.length) { return tension; }
+      tension = _;
+      return component;
+    };
+
+    component.defined = function (_) {
+      if (!arguments.length) { return defined; }
+      defined = _;
+      return component;
+    };
+
+    component.properties = function (_) {
+      if (!arguments.length) { return properties; }
+      properties.class = typeof _.class !== "undefined" ? _.class : properties.class;
+      properties.fill = typeof _.fill !== "undefined" ? _.fill : properties.fill;
+      properties.stroke = typeof _.stroke !== "undefined" ? _.stroke : properties.stroke;
+      properties.strokeWidth = typeof _.strokeWidth !== "undefined" ? _.strokeWidth : properties.strokeWidth;
+      properties.opacity = typeof _.opacity !== "undefined" ? _.opacity : properties.opacity;
+      return component;
+    };
+
+    return component;
+  };
+});
+
+define('src/modules/chart/series',['require','d3','builder','functor','valuator','src/modules/helpers/scaletor','src/modules/helpers/timeparser','src/modules/component/clippath','src/modules/component/axis/axis','src/modules/component/events/brush','src/modules/component/events/events','src/modules/helpers/add_event_listener','src/modules/helpers/remove_event_listener','src/modules/element/svg/line','src/modules/component/series/area','src/modules/component/series/bars','src/modules/component/series/points','src/modules/component/series/line'],function (require) {
+  var d3 = require("d3");
+  var builder = require("builder");
+  var functor = require("functor");
+  var valuator = require("valuator");
+  var scaletor = require("src/modules/helpers/scaletor");
+  var parseTime = require("src/modules/helpers/timeparser");
+  var clip = require("src/modules/component/clippath");
+  var axis = require("src/modules/component/axis/axis");
+  var brushComponent = require("src/modules/component/events/brush");
+  var events = require("src/modules/component/events/events");
   var addEventListener = require("src/modules/helpers/add_event_listener");
   var removeEventListener = require("src/modules/helpers/remove_event_listener");
+  var zeroAxisLine = require("src/modules/element/svg/line");
+  var areas = require("src/modules/component/series/area");
+  var bars = require("src/modules/component/series/bars");
+  var circles = require("src/modules/component/series/points");
+  var lines = require("src/modules/component/series/line");
 
-  return function lineChart() {
-    // Chart options
-    var margin = deepCopy(marginOptions, {});
-    var width = 760;
-    var height = 120;
-    var color = d3.scale.category20c();
+  return function series() {
+    var margin = {top: 20, right: 50, bottom: 50, left: 50};
+    var width = 960;
+    var height = 500;
+    var accessor = function (d) { return d; };
     var xValue = function (d) { return d.x; };
     var yValue = function (d) { return d.y; };
-    var defined = function () { return true; };
-    var dispatch = d3.dispatch("brush");
-
-    // Scale options
-    var xScaleOpts = deepCopy(scaleOptions, {});
-    var yScaleOpts = deepCopy(scaleOptions, {});
-    var xScale;
-    var yScale;
-
-    // Other options
-    var axisX = deepCopy(xAxisOptions, {});
-    var axisY = deepCopy(yAxisOptions, {});
-    var clipPath = deepCopy(clipPathOptions, {});
-    var zeroLine = deepCopy(zeroLineOptions, {});
-
-    // Line Options
-    var lines = {
-      groupClass: "paths",
-      lineClass: "line",
-      stroke: function (d, i) { return color(i); },
-      strokeWidth: 3,
-      opacity: 1,
-      interpolate: "linear",
-      tension:  0.7
+    var zValue = function (d) { return d.z; };
+    var xScale = {
+      scale: d3.time.scale.utc(),
+      domain: null,
+      clamp: false,
+      nice: false
     };
-
-    // Circle Options
-    var circles = {
+    var yScale = {
+      scale: d3.scale.linear(),
+      domain: null,
+      clamp: false,
+      nice: false
+    };
+    var zScale = {
+      scale: d3.scale.linear(),
+      domain: null,
+      clamp: false,
+      nice: false
+    };
+    var xAxis = {
       show: true,
-      groupClass: "circle layer",
-      circleClass: "circle",
-      fill: function (d, i, j) { return color(j); },
-      stroke: null,
-      radius: 5,
-      strokeWidth: 3
+      gridlines: false,
+      class: "x axis",
+      transform: null,
+      tick: {},
+      tickText: { anchor: "middle", x: 0, y: 9, dx: "", dy: ".71em" },
+      rotateLabels: { allow: true },
+      title: { anchor: "middle" }
     };
-
+    var yAxis = {
+      show: true,
+      gridlines: false,
+      class: "y axis",
+      transform: null,
+      tick: {},
+      tickText: { anchor: "end", x: -9, y: 0, dy: ".32em" },
+      rotateLabels: {},
+      title: { x: 0, y: -40, anchor: "middle" }
+    };
+    var zAxis = {
+      show: false,
+      gridlines: false,
+      class: "z axis",
+      transform: null,
+      tick: {},
+      tickText: { anchor: "start", x: 9, y: 0, dy: ".32em" },
+      rotateLabels: {},
+      title: {}
+    };
+    var brushOpts = {
+      class: "brush",
+      x: true,
+      y: false,
+      opacity: 0.2,
+      extent: null,
+      clamp: false
+    };
+    var zeroLine = {
+      show: false,
+      class: "zero-line",
+      stroke: "#000000",
+      strokeWidth: 1,
+      opacity: 0.5
+    };
+    var stacks = {
+      scale: "y",
+      offset: "zero",
+      order: "default",
+      out: function stackOut(d, y0, y) {
+        d.y0 = y0;
+        d.y = y;
+      }
+    };
+    var bar = {};
+    var line = {};
+    var area = {};
+    var points = {};
     var listeners = {};
 
-    function chart(selection) {
+    function chart(selection)  {
       selection.each(function (data, index) {
-        width = width - margin.left - margin.right;
-        height = height - margin.top - margin.bottom;
+        data = accessor.call(this, data, index);
 
-        xScale = xScaleOpts.scale || d3.time.scale.utc();
-        xScale.domain(xScaleOpts.domain || d3.extent(mapDomain(data), xValue));
+        var adjustedWidth = width - margin.left - margin.right;
+        var adjustedHeight = height - margin.top - margin.bottom;
+        var svgEvents = events().listeners(listeners);
 
-        if (typeof xScale.rangeBands === "function") {
-          xScale.rangeBands([0, width, 0.1]);
-        } else {
-          xScale.range([0, width]);
-        }
+        /* Stacking Options ******************************** */
+        var stack = d3.layout.stack()
+          .x(xValue)
+          .y(stacks.scale === "z" ? zValue : yValue)
+          .offset(stacks.offset)
+          .order(stacks.order)
+          .out(stacks.out);
 
-        yScale = yScaleOpts.scale || d3.scale.linear();
-        yScale.domain(yScaleOpts.domain || d3.extent(mapDomain(data), yValue))
-          .range([height, 0]);
+        data = stack(data);
+        /* ******************************** */
 
-        if (xScaleOpts.nice) { xScale.nice(); }
-        if (yScaleOpts.nice) { yScale.nice(); }
+        /* Scales ******************************** */
+        var x = xScale.scale
+          .domain(xScale.domain ? xScale.domain.call(this, d3.merge(data)) : xDomain(data, xValue))
+          .clamp(xScale.clamp)
+          .range([0, adjustedWidth]);
 
+        var y = yScale.scale
+          .domain(yScale.domain ? yScale.domain.call(this, d3.merge(data)) : domain(data, yValue))
+          .clamp(yScale.clamp)
+          .range([adjustedHeight, 0]);
+
+        var z = zScale.scale
+          .domain(zScale.domain ? zScale.domain.call(this, d3.merge(data)) : domain(data, zValue))
+          .clamp(zScale.clamp)
+          .range([adjustedHeight, 0]);
+
+        if (xScale.nice) { x.nice(); }
+        if (yScale.nice) { y.nice(); }
+        if (zScale.nice) { z.nice(); }
+        /* ******************************** */
+
+        /* Canvas ******************************** */
         var svg = d3.select(this).selectAll("svg")
           .data([data])
           .enter().append("svg")
-          .attr("width", width + margin.left + margin.right)
-          .attr("height", height + margin.top + margin.bottom);
+          .attr("width", width)
+          .attr("height", height)
+          .call(svgEvents);
 
         var g = svg.append("g")
           .attr("transform", "translate(" + margin.left + ", " + margin.top + ")");
+        /* ******************************** */
 
-        var X = scaleValue(xScale, xValue);
-        var Y = scaleValue(yScale, yValue);
-        var line = d3.svg.line().x(X).y(Y)
-          .interpolate(lines.interpolate)
-          .tension(lines.tension)
-          .defined(defined);
+        /* Brush ******************************** */
+        if (listeners.brushstart && listeners.brushstart.length ||
+            listeners.brush && listeners.brush.length ||
+            listeners.brushend && listeners.brushend.length) {
+          var brush = brushComponent()
+            .class(brushOpts.class)
+            .xScale(brushOpts.x ? x : null)
+            .yScale(brushOpts.y ? y : null)
+            .opacity(brushOpts.opacity)
+            .clamp(brushOpts.clamp)
+            .extent(brushOpts.extent)
+            .height(adjustedHeight)
+            .brushstart(listeners.brushstart)
+            .brush(listeners.brush)
+            .brushend(listeners.brushend);
 
-        var linePath = path()
-          .pathGenerator(line)
-          .cssClass(lines.lineClass)
-          .stroke(lines.stroke)
-          .strokeWidth(lines.strokeWidth)
-          .opacity(lines.opacity)
-          .listeners(listeners);
-
-        if (axisX.show) {
-          var xAxis = axis()
-            .scale(xScale)
-            .gClass(axisX.gClass)
-            .transform(axisX.transform || "translate(0," + (yScale.range()[0] + 1) + ")")
-            .tick({
-              number: axisX.tick.number,
-              values: axisX.tick.values,
-              size: axisX.tick.size,
-              padding: axisX.tick.padding,
-              format: axisX.tick.format,
-              rotate: axisX.tick.rotate,
-              innerTickSize: axisX.tick.innerTickSize,
-              outerTickSize: axisX.tick.outerTickSize,
-              text: {
-                x: axisX.tick.text.x,
-                y: axisX.tick.text.y,
-                dx: axisX.tick.text.dx,
-                dy: axisX.tick.text.dy,
-                anchor: axisX.tick.text.anchor
-              }
-            })
-            .title({
-              titleClass: axisX.title.titleClass,
-              x: width / 2,
-              y: axisX.title.y,
-              dx: axisX.title.dx,
-              dy: axisX.title.dy,
-              anchor: axisX.title.anchor,
-              text: axisX.title.text
-            });
-
-          g.call(xAxis);
+          g.call(brush);
         }
+        /* ******************************** */
 
-        if (axisY.show) {
-          var yAxis = axis()
-            .scale(yScale)
-            .orient("left")
-            .gClass(axisY.gClass)
-            .transform(axisY.transform || "translate(-1,0)")
-            .tick({
-              number: axisY.tick.number,
-              values: axisY.tick.values,
-              size: axisY.tick.size, padding: axisY.tick.padding, format: axisY.tick.format,
-              rotate: axisY.tick.rotate,
-              innerTickSize: axisY.tick.innerTickSize,
-              outerTickSize: axisY.tick.outerTickSize,
-              text: {
-                x: axisY.tick.text.x,
-                y: axisY.tick.text.y,
-                dx: axisY.tick.text.dx,
-                dy: axisY.tick.text.dy,
-                anchor: axisY.tick.text.anchor
-              }
-            })
-            .title({
-              titleClass: axisY.title.titleClass,
-              x: axisY.title.x,
-              y: axisY.title.y,
-              dx: axisY.title.dx,
-              dy: axisY.title.dy,
-              transform: "translate(0," + height / 2 + ")rotate(" + axisY.title.rotate + ")",
-              anchor: axisY.title.anchor,
-              text: axisY.title.text
-            });
-
-          g.call(yAxis);
-        }
-
-        g.append("g")
-          .attr("class", lines.groupClass)
-          .call(linePath);
-
-        if (zeroLine.add) {
+        /* Zero-line ******************************** */
+        if (zeroLine.show) {
           var zLine = zeroAxisLine()
-            .cssClass(zeroLine.lineClass)
-            .x1(function () { return xScale.range()[0]; })
-            .x2(function () { return xScale.range()[1]; })
-            .y1(function () { return yScale(0); })
-            .y2(function () { return yScale(0); })
-            .stroke(zeroLine.stroke)
-            .strokeWidth(zeroLine.strokeWidth)
-            .opacity(zeroLine.opacity);
+            .x1(function () { return x.range()[0]; })
+            .x2(function () { return x.range()[1]; })
+            .y1(function () { return y(0); })
+            .y2(function () { return y(0); });
 
-          g.call(zLine);
+          g.append("g")
+            .datum([{}])
+            .call(builder(zeroLine, zLine));
+        }
+        /* ******************************** */
+
+        /* Axes ******************************** */
+        if (xAxis.gridlines) {
+          xAxis.tick.innerTickSize = -adjustedHeight;
+        }
+        if (yAxis.gridlines) {
+          yAxis.tick.innerTickSize = -adjustedWidth;
         }
 
-        if (circles.show) {
-          var clippath = clip()
-            .width(clipPath.width || width)
-            .height(clipPath.height || height);
+        if (xAxis.show) {
+          var axisX = axis()
+            .scale(x)
+            .class(xAxis.class)
+            .transform(xAxis.transform || "translate(0," + (y.range()[0]) + ")")
+            .tick(xAxis.tick)
+            .tickText(xAxis.tickText)
+            .rotateLabels(xAxis.rotateLabels)
+            .title(xAxis.title);
 
-          var points = circle()
-            .cx(X)
-            .cy(Y)
-            .color(color)
-            .radius(circles.radius)
-            .cssClass(circles.circleClass)
-            .fill(circles.fill)
-            .stroke(circles.stroke ? circles.stroke : circles.fill)
-            .strokeWidth(circles.strokeWidth)
-            .listeners(listeners);
-
-          g.call(clippath)
-            .append("g")
-            .attr("clip-path", "url(#" + clippath.id() + ")")
-            .selectAll("gCircles")
-            .data(function (d) { return d; })
-            .enter().append("g")
-            .attr("class", circles.groupClass)
-            .datum(function (d) { return d; })
-            .call(points);
+          g.call(axisX);
         }
+
+        if (yAxis.show) {
+          var axisY = axis()
+            .scale(y)
+            .orient("left")
+            .class(yAxis.class)
+            .transform(yAxis.transform || "translate(0,0)")
+            .tick(yAxis.tick)
+            .tickText(yAxis.tickText)
+            .title(yAxis.title);
+
+          g.call(axisY);
+        }
+
+        if (zAxis.show) {
+          var axisZ = axis()
+            .scale(z)
+            .orient("right")
+            .class(zAxis.class)
+            .transform(zAxis.transform || "translate(" + x.range()[1] + "," + "0)")
+            .tick(zAxis.tick)
+            .tickText(zAxis.tickText)
+            .title(zAxis.title);
+
+          g.call(axisZ);
+        }
+        /* ******************************** */
+
+        /* ClipPath ******************************** */
+        var clippath = clip().width(adjustedWidth).height(adjustedHeight);
+        var clippedG = g.call(clippath).append("g")
+          .attr("clip-path", "url(#" + clippath.id() + ")");
+        /* ******************************** */
+
+        /* SVG Elements ******************************** */
+        var elements = [
+          {type: "area", func: areas(), opts: area},
+          {type: "bar", func: bars(), opts: bar},
+          {type: "line", func: lines(), opts: line},
+          {type: "points", func: circles(), opts: points}
+        ];
+
+        elements.forEach(function (d) {
+
+          // Only render elements when api called
+          if (d3.keys(d.opts).length) {
+            var element = functor().function(d.func);
+
+            if (d.type === "area") { d.opts.offset = stacks.offset; }
+            d.opts = !Array.isArray(d.opts) ? [d.opts] : d.opts;
+
+            d.opts.forEach(function (props) {
+              var isZ = props.scale && props.scale.toLowerCase() === "z";
+              props.x = xValue;
+              props.y = isZ ? zValue : yValue;
+              props.xScale = x;
+              props.yScale = isZ ? z : y;
+
+              clippedG.call(element.options(props));
+            });
+          }
+        });
+        /* ******************************** */
       });
+    }
+
+    function xDomain(data, accessor) {
+      if (d3.keys(bar).length) {
+        var interval = bar.interval ? bar.interval : "30s";
+        var offset = parseFloat(interval);
+        var timeInterval = parseTime(interval);
+
+        return [
+          d3.min(d3.merge(data), accessor),
+          d3.time[timeInterval].offset(d3.max(d3.merge(data), accessor), offset)
+        ];
+      }
+      return d3.extent(d3.merge(data), accessor);
+    }
+
+    function domain(data, accessor) {
+      return [
+        Math.min(0, d3.min(d3.merge(data), getAccessor(accessor))),
+        Math.max(0, d3.max(d3.merge(data), getAccessor(accessor)))
+      ];
+    }
+
+    function getAccessor(accessor) {
+      var obj = {y: true, z: false};
+      var val = accessor.call(this, obj) ? "y" : "z";
+
+      return function (d, i) {
+        var isStacked = !!d3.keys(area).length || !!d3.keys(bar).length;
+        var properlyOffset = stacks.offset !== "overlap" && !bar.group;
+        var scalesEqual = val === stacks.scale;
+
+        if (isStacked && properlyOffset && scalesEqual) {
+          return d.y0 + accessor.call(this, d, i);
+        }
+        return accessor.call(this, d, i);
+      };
     }
 
     // Public API
     chart.margin = function (_) {
       if (!arguments.length) { return margin; }
-      margin = marginAPI(_, margin);
+      margin.top = typeof _.top !== "undefined" ? _.top : margin.top;
+      margin.right = typeof _.right !== "undefined" ? _.right : margin.right;
+      margin.bottom = typeof _.bottom !== "undefined" ? _.bottom : margin.bottom;
+      margin.left = typeof _.left !== "undefined" ? _.left : margin.left;
       return chart;
     };
 
@@ -13564,374 +13305,174 @@ define('src/modules/chart/line',['require','d3','src/modules/component/axis','sr
       return chart;
     };
 
-    chart.color = function (_) {
-      if (!arguments.length) { return color; }
-      color = _;
+    chart.brush = function (_) {
+      if (!arguments.length) { return brushOpts; }
+      brushOpts.class = typeof _.clamp !== "undefined" ? _.clamp : brushOpts.clamp;
+      brushOpts.x = typeof _.x !== "undefined" ? _.x : brushOpts.x;
+      brushOpts.y = typeof _.y !== "undefined" ? _.y : brushOpts.y;
+      brushOpts.opacity = typeof _.opacity !== "undefined" ? _.opacity : brushOpts.opacity;
+      brushOpts.clamp = typeof _.clamp !== "undefined" ? _.clamp : brushOpts.clamp;
+      brushOpts.extent = typeof _.extent !== "undefined" ? _.extent : brushOpts.extent;
+      return chart;
+    };
+
+    chart.accessor = function (_) {
+      if (!arguments.length) { return accessor; }
+      accessor = valuator(_);
+      return chart;
+    };
+
+    chart.stack = function (_) {
+      if (!arguments.length) { return stacks; }
+      stacks.scale = typeof _.scale !== "undefined" ? _.scale : stacks.scale;
+      stacks.offset = typeof _.offset !== "undefined" ? _.offset : stacks.offset;
+      stacks.order = typeof _.order !== "undefined" ? _.order : stacks.order;
+      stacks.out = typeof _.out !== "undefined" ? _.out : stacks.out;
       return chart;
     };
 
     chart.x = function (_) {
       if (!arguments.length) { return xValue; }
-      xValue = _;
+      xValue = valuator(_);
       return chart;
     };
 
     chart.y = function (_) {
       if (!arguments.length) { return yValue; }
-      yValue = _;
+      yValue = valuator(_);
       return chart;
     };
 
-    chart.defined = function (_) {
-      if (!arguments.length) { return defined; }
-      defined = _;
+    chart.z = function (_) {
+      if (!arguments.length) { return zValue; }
+      zValue = valuator(_);
       return chart;
     };
 
     chart.xScale = function (_) {
-      if (!arguments.length) { return xScaleOpts; }
-      xScaleOpts = scaleAPI(_, xScaleOpts);
+      if (!arguments.length) { return xScale; }
+      xScale.scale = typeof _.scale !== "undefined" ? scaletor(_.scale) : xScale.scale;
+      xScale.domain = typeof _.domain !== "undefined" ? d3.functor(_.domain) : xScale.domain;
+      xScale.clamp = typeof _.clamp !== "undefined" ? _.clamp : xScale.clamp;
+      xScale.nice = typeof _.nice !== "undefined" ? _.nice : xScale.nice;
       return chart;
     };
 
     chart.yScale = function (_) {
-      if (!arguments.length) { return yScaleOpts; }
-      yScaleOpts = scaleAPI(_, yScaleOpts);
+      if (!arguments.length) { return yScale; }
+      yScale.scale = typeof _.scale !== "undefined" ? scaletor(_.scale) : yScale.scale;
+      yScale.domain = typeof _.domain !== "undefined" ? d3.functor(_.domain) : yScale.domain;
+      yScale.clamp = typeof _.clamp !== "undefined" ? _.clamp : yScale.clamp;
+      yScale.nice = typeof _.nice !== "undefined" ? _.nice : yScale.nice;
+      return chart;
+    };
+
+    chart.zScale = function (_) {
+      if (!arguments.length) { return zScale; }
+      zScale.scale = typeof _.scale !== "undefined" ? scaletor(_.scale) : zScale.scale;
+      zScale.domain = typeof _.domain !== "undefined" ? d3.functor(_.domain) : zScale.domain;
+      zScale.clamp = typeof _.clamp !== "undefined" ? _.clamp : zScale.clamp;
+      zScale.nice = typeof _.nice !== "undefined" ? _.nice : zScale.nice;
       return chart;
     };
 
     chart.xAxis = function (_) {
-      if (!arguments.length) { return axisX; }
-      axisX = axisAPI(_, axisX);
+      if (!arguments.length) { return xAxis; }
+      xAxis.show = typeof _.show !== "undefined" ? _.show : xAxis.show;
+      xAxis.gridlines = typeof _.gridlines !== "undefined" ? _.gridlines : xAxis.gridlines;
+      xAxis.class = typeof _.class !== "undefined" ? _.class : xAxis.class;
+      xAxis.transform = typeof _.transform !== "undefined" ? _.transform : xAxis.transform;
+      xAxis.tick = typeof _.tick !== "undefined" ? _.tick : xAxis.tick;
+      xAxis.tickText = typeof _.tickText!== "undefined" ? _.tickText: xAxis.tickText;
+      xAxis.rotateLabels = typeof _.rotateLabels !== "undefined" ? _.rotateLabels : xAxis.rotateLabels;
+      xAxis.title = typeof _.title !== "undefined" ? _.title : xAxis.title;
       return chart;
     };
 
     chart.yAxis = function (_) {
-      if (!arguments.length) { return axisY; }
-      axisY = axisAPI(_, axisY);
+      if (!arguments.length) { return yAxis; }
+      yAxis.show = typeof _.show !== "undefined" ? _.show : yAxis.show;
+      yAxis.gridlines = typeof _.gridlines !== "undefined" ? _.gridlines : yAxis.gridlines;
+      yAxis.class = typeof _.class !== "undefined" ? _.class : yAxis.class;
+      yAxis.transform = typeof _.transform !== "undefined" ? _.transform : yAxis.transform;
+      yAxis.tick = typeof _.tick !== "undefined" ? _.tick : yAxis.tick;
+      yAxis.tickText = typeof _.tickText!== "undefined" ? _.tickText: yAxis.tickText;
+      yAxis.title = typeof _.title !== "undefined" ? _.title : yAxis.title;
       return chart;
     };
 
-    chart.clipPath = function (_) {
-      if (!arguments.length) { return clipPath; }
-      clipPath = clippathAPI(_, clipPath);
+    chart.zAxis = function (_) {
+      if (!arguments.length) { return zAxis; }
+      zAxis.show = typeof _.show !== "undefined" ? _.show : zAxis.show;
+      zAxis.gridlines = typeof _.gridlines !== "undefined" ? _.gridlines : zAxis.gridlines;
+      zAxis.class = typeof _.class !== "undefined" ? _.class : zAxis.class;
+      zAxis.transform = typeof _.transform !== "undefined" ? _.transform : zAxis.transform;
+      zAxis.tick = typeof _.tick !== "undefined" ? _.tick : zAxis.tick;
+      zAxis.tickText = typeof _.tickText!== "undefined" ? _.tickText: zAxis.tickText;
+      zAxis.title = typeof _.title !== "undefined" ? _.title : zAxis.title;
       return chart;
     };
 
     chart.zeroLine = function (_) {
       if (!arguments.length) { return zeroLine; }
-      zeroLine = zeroLineAPI(_, zeroLine);
+      zeroLine.show = typeof _.show !== "undefined" ? _.show : zeroLine.show;
+      zeroLine.class = typeof _.class !== "undefined" ? _.class : zeroLine.class;
+      zeroLine.stroke = typeof _.stroke !== "undefined" ? _.stroke : zeroLine.stroke;
+      zeroLine.strokeWidth = typeof _.strokeWidth !== "undefined" ? _.strokeWidth : zeroLine.strokeWidth;
+      zeroLine.opacity = typeof _.opacity !== "undefined" ? _.opacity : zeroLine.opacity;
       return chart;
     };
 
-    chart.lines = function (_) {
-      if (!arguments.length) { return lines; }
-      lines = linesAPI(_, lines);
+    chart.bar = function (_) {
+      if (!arguments.length) { return bar; }
+      bar = typeof _ !== "object" ? bar : _;
       return chart;
     };
 
-    chart.circles = function (_) {
-      if (!arguments.length) { return circles; }
-      circles = circlesAPI(_, circles);
+    chart.line = function (_) {
+      if (!arguments.length) { return line; }
+      line = typeof _ !== "object" ? line : _;
+      return chart;
+    };
+
+    chart.area = function (_) {
+      if (!arguments.length) { return area; }
+      area = typeof _ !== "object" ? area : _;
+      return chart;
+    };
+
+    chart.points = function (_) {
+      if (!arguments.length) { return points; }
+      points = typeof _ !== "object" ? points : _;
       return chart;
     };
 
     chart.listeners = function (_) {
       if (!arguments.length) { return listeners; }
-      listeners = _;
+      listeners = typeof _ !== "object" ? listeners : _;
       return chart;
     };
 
-    chart.on = addEventListener(listeners, chart);
+    chart.on = addEventListener(chart);
 
-    chart.off = removeEventListener(listeners, chart);
+    chart.off = removeEventListener(chart);
 
     return chart;
   };
 });
-
-define('src/modules/chart/pie',['require','d3','src/modules/element/svg/path'],function (require) {
+define('src/modules/chart/sunburst',['require','d3','src/modules/element/svg/path','src/modules/component/events/events','valuator','src/modules/helpers/add_event_listener','src/modules/helpers/remove_event_listener'],function (require) {
   var d3 = require("d3");
   var path = require("src/modules/element/svg/path");
-
-  return function pieChart() {
-    var width = 300;
-    var height = 300;
-    var color = d3.scale.category10();
-    var outerRadius = null;
-    var innerRadius = 0;
-    var sort = null;
-    var value = function (d) { return d.x; };
-    var label = function (d) { return d.name; };
-    var arc = d3.svg.arc();
-    var dispatch = d3.dispatch("hover", "mouseover", "mouseout");
-
-    var pieFill = function (d, i) { return color(i); };
-    var pieClass = "pie";
-
-    // Text options
-    var textFill = "white";
-    var textAnchor = "middle";
-    var textDY = ".35em";
-    var textTransform = function (d) { return "translate(" + arc.centroid(d) + ")"; };
-
-    function chart (selection) {
-      selection.each(function (data, i) {
-        var pie = d3.layout.pie().sort(sort).value(value);
-        var radius = Math.min(width, height) / 2;
-
-        var svg = d3.select(this).append("svg")
-          .attr("width", width)
-          .attr("height", height);
-
-        var g = svg.append("g")
-          .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
-
-        arc.outerRadius(outerRadius || radius).innerRadius(innerRadius);
-
-        var piePath = path()
-          .pathGenerator(arc)
-          .accessor(pie(data))
-          .cssClass(pieClass)
-          .fill(pieFill);
-
-        g.call(piePath);
-
-        g.selectAll("g")
-          .data(pie(data))
-          .append("text")
-          .attr("transform", textTransform)
-          .attr("dy", textDY)
-          .style("text-anchor", textAnchor)
-          .style("fill", textFill)
-          .text(function (d) {
-            return label.call(this, d.data);
-          });
-      });
-    }
-
-    chart.width = function (_) {
-      if (!arguments.length) { return width; }
-      width = _;
-      return chart;
-    };
-
-    chart.height = function (_) {
-      if (!arguments.length) { return height; }
-      height = _;
-      return chart;
-    };
-
-    chart.color = function (_) {
-      if (!arguments.length) { return color; }
-      color = _;
-      return chart;
-    };
-
-    chart.outerRadius = function (_) {
-      if (!arguments.length) { return outerRadius; }
-      outerRadius = _;
-      return chart;
-    };
-
-    chart.innerRadius = function (_) {
-      if (!arguments.length) { return innerRadius; }
-      innerRadius = _;
-      return chart;
-    };
-
-    chart.sort = function (_) {
-      if (!arguments.length) { return sort; }
-      sort = _;
-      return chart;
-    };
-
-    chart.value = function (_) {
-      if (!arguments.length) { return value; }
-      value = _;
-      return chart;
-    };
-
-    chart.label = function (_) {
-      if (!arguments.length) { return label; }
-      label = _;
-      return chart;
-    };
-
-    chart.dispatch = function (_) {
-      if (!arguments.length) { return dispatch; }
-      dispatch = _;
-      return chart;
-    };
-
-    chart.pieFill = function (_) {
-      if (!arguments.length) { return pieFill; }
-      pieFill = _;
-      return chart;
-    };
-
-    chart.pieClass = function (_) {
-      if (!arguments.length) { return pieClass; }
-      pieClass = _;
-      return chart;
-    };
-
-    chart.textFill = function (_) {
-      if (!arguments.length) { return textFill; }
-      textFill = _;
-      return chart;
-    };
-
-    chart.textAnchor = function (_) {
-      if (!arguments.length) { return textAnchor; }
-      textAnchor = _;
-      return chart;
-    };
-
-    chart.textDY = function (_) {
-      if (!arguments.length) { return textDY; }
-      textDY = _;
-      return chart;
-    };
-
-    chart.textTransform = function (_) {
-      if (!arguments.length) { return textTransform; }
-      textTransform = _;
-      return chart;
-    };
-
-    d3.rebind(chart, dispatch, "on");
-    return chart;
-  };
-});
-define('src/modules/chart/scatterplot',['require','d3','src/modules/component/axis','src/modules/element/svg/circle','src/modules/element/svg/clipPath'],function (require) {
-  var d3 = require("d3");
-  var axis = require("src/modules/component/axis");
-  var circle = require("src/modules/element/svg/circle");
-  var clipPath = require("src/modules/element/svg/clipPath");
-
-  return function scatterPlot() {
-    var margin = {top: 20, right: 20, bottom: 20, left: 50};
-    var width = 760;
-    var height = 500;
-    var color = d3.scale.category20c();
-    var xValue = function (d) { return d.x; };
-    var yValue = function (d) { return d.y; };
-    var zValue = function (d) { return d.z; };
-    var xScale = null;
-    var yScale = null;
-    var dispatch = d3.dispatch("brush", "hover", "mouseover", "mouseout");
-
-    var showXAxis = true;
-    var xAxisClass = "x axis";
-    var xAxisTextClass = "x label";
-    var xAxisTextX = function () { return width / 2; };
-    var xAxisTextY = 30;
-    var xAxisTextDY = ".71em";
-    var xAxisTextAnchor = "middle";
-    var xAxisText = "";
-
-    var showYAxis = true;
-    var yAxisClass = "y axis";
-    var yAxisTextClass = "y label";
-    var yAxisTextTransform = "rotate(-90)";
-    var yAxisTextX = -height / 2;
-    var yAxisTextY = -60;
-    var yAxisTextDY = ".71em";
-    var yAxisTextAnchor = "middle";
-    var yAxisText = "";
-
-    var circleRadius = zValue;
-    var circleClass = "circle";
-    var circleFill = function (d, i) { return color(i); };
-    var circleStroke = function (d, i) { return color(i); };
-    var circleStrokeWidth = 3;
-
-    function chart(selection) {
-      selection.each(function (data, i) {
-        width = width - margin.left - margin.right;
-        height = height - margin.top - margin.bottom;
-
-        var svg = d3.select(this).append("svg")
-          .data([data])
-          .attr("width", width + margin.left + margin.right)
-          .attr("height", height + margin.top + margin.bottom);
-
-        var g = svg.append("g")
-          .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-
-        xScale = xScale ? xScale : d3.scale.linear()
-          .domain(d3.extent(data, xValue))
-          .range([0, width]);
-
-        yScale = yScale ? yScale : d3.scale.linear()
-          .domain(d3.extent(data, yValue))
-          .range([height, 0]);
-
-        var points = circle()
-          .cx(X)
-          .cy(Y)
-          .color(color)
-          .radius(circleRadius)
-          .cssClass(circleClass)
-          .fill(circleFill)
-          .stroke(circleStroke)
-          .strokeWidth(circleStrokeWidth);
-
-        g.call(points);
-
-        if (showXAxis) {
-          var xAxis = axis()
-            .scale(xScale)
-            .gClass(xAxisClass)
-            .transform("translate(0," + yScale.range()[0] + ")")
-            .titleX(xAxisTextX)
-            .titleY(xAxisTextY)
-            .titleDY(xAxisTextDY)
-            .titleAnchor(xAxisTextAnchor)
-            .title(xAxisText);
-
-          g.call(xAxis);
-        }
-
-        if (showYAxis) {
-          var yAxis = axis()
-            .scale(yScale)
-            .orient("left")
-            .gClass(yAxisClass)
-            .titleX(yAxisTextX)
-            .titleY(yAxisTextY)
-            .titleDY(yAxisTextDY)
-            .titleAnchor(yAxisTextAnchor)
-            .title(yAxisText);
-
-          g.call(yAxis);
-        }
-      });
-    }
-
-    function X(d, i) {
-      return xScale(xValue.call(null, d, i));
-    }
-
-    function Y(d, i) {
-      return yScale(yValue.call(null, d, i));
-    }
-
-    d3.rebind(chart, dispatch, "on");
-    return chart;
-  };
-});
-
-define('src/modules/chart/sunburst',['require','d3','src/modules/element/svg/path'],function (require) {
-  var d3 = require("d3");
-  var path = require("src/modules/element/svg/path");
+  var events = require("src/modules/component/events/events");
+  var valuator = require("valuator");
+  var addEventListener = require("src/modules/helpers/add_event_listener");
+  var removeEventListener = require("src/modules/helpers/remove_event_listener");
 
   return function sunburst() {
-    // Chart options
+    // Private variables
     var width = 500;
     var height = 500;
-    var color = d3.scale.category20c();
+    var color = d3.scale.category10();
     var sort = null;
     var value = function (d) { return d.size; };
     var xScale = d3.scale.linear().range([0, 2 * Math.PI]);
@@ -13948,25 +13489,33 @@ define('src/modules/chart/sunburst',['require','d3','src/modules/element/svg/pat
     var outerRadius = function (d) {
       return Math.max(0, yScale(d.y + d.dy));
     };
-    var dispatch = d3.dispatch("brush", "hover", "mouseover", "mouseout");
 
     // Pie options
-    var pieClass = "pie";
-    var pieStroke = "#fff";
-    var pieFill = function (d, i) {
+    var pieClass = "slice";
+    var stroke = "#ffffff";
+    var fill = function (d, i) {
       if (d.depth === 0) { return "none"; }
       return color(i);
     };
 
+    var listeners = {};
+
     function chart (selection) {
       selection.each(function (data) {
         var radius = Math.min(width, height) / 2;
-        var partition = d3.layout.partition().sort(sort).value(value);
+
+        var partition = d3.layout.partition()
+          .sort(sort)
+          .value(value);
+
+        var svgEvents = events().listeners(listeners);
+
         var svg = d3.select(this).append("svg")
           .attr("width", width)
           .attr("height", height)
           .append("g")
-          .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
+          .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")")
+          .call(svgEvents);
 
         yScale.range([0, radius]);
 
@@ -13979,14 +13528,15 @@ define('src/modules/chart/sunburst',['require','d3','src/modules/element/svg/pat
         var arcPath = path()
           .pathGenerator(arc)
           .accessor(partition.nodes)
-          .cssClass(pieClass)
-          .stroke(pieStroke)
-          .fill(pieFill);
+          .class(pieClass)
+          .stroke(stroke)
+          .fill(fill);
 
         svg.datum(data).call(arcPath);
       });
     }
 
+    // Public API
     chart.width = function (_) {
       if (!arguments.length) { return width; }
       width = _;
@@ -14001,7 +13551,7 @@ define('src/modules/chart/sunburst',['require','d3','src/modules/element/svg/pat
 
     chart.color = function (_) {
       if (!arguments.length) { return color; }
-      color = _;
+      color = typeof _ !== "function" ? color : _;
       return chart;
     };
 
@@ -14013,7 +13563,7 @@ define('src/modules/chart/sunburst',['require','d3','src/modules/element/svg/pat
 
     chart.value = function (_) {
       if (!arguments.length) { return value; }
-      value = _;
+      value = valuator(_);
       return chart;
     };
 
@@ -14031,53 +13581,56 @@ define('src/modules/chart/sunburst',['require','d3','src/modules/element/svg/pat
 
     chart.startAngle = function (_) {
       if (!arguments.length) { return startAngle; }
-      startAngle = _;
+      startAngle = d3.functor(_);
       return chart;
     };
 
     chart.endAngle = function (_) {
       if (!arguments.length) { return endAngle; }
-      endAngle = _;
+      endAngle = d3.functor(_);
       return chart;
     };
 
     chart.innerRadius = function (_) {
       if (!arguments.length) { return innerRadius; }
-      innerRadius = _;
+      innerRadius = d3.functor(_);
       return chart;
     };
 
     chart.outerRadius = function (_) {
       if (!arguments.length) { return outerRadius; }
-      outerRadius = _;
+      outerRadius = d3.functor(_);
       return chart;
-    };
+   };
 
-    chart.dispatch = function (_) {
-      if (!arguments.length) { return dispatch; }
-      dispatch = _;
-      return chart;
-    };
-
-    chart.pieClass = function (_) {
+    chart.class = function (_) {
       if (!arguments.length) { return pieClass; }
-      pieClass = _;
+      pieClass = typeof _ !== "string" ? pieClass : _;
       return chart;
     };
 
-    chart.pieStroke = function (_) {
-      if (!arguments.length) { return pieStroke; }
-      pieStroke = _;
+    chart.stroke = function (_) {
+      if (!arguments.length) { return stroke; }
+      stroke = _;
       return chart;
     };
 
-    chart.pieFill = function (_) {
-      if (!arguments.length) { return pieFill; }
-      pieFill= _;
+    chart.fill = function (_) {
+      if (!arguments.length) { return fill; }
+      fill= _;
       return chart;
     };
 
-    d3.rebind(chart, dispatch, "on");
+    chart.listeners = function (_) {
+      if (!arguments.length) { return listeners; }
+      listeners = typeof _ !== "object" ? listeners : _;
+      return chart;
+    };
+
+    chart.on = addEventListener(chart);
+
+    chart.off = removeEventListener(chart);
+
     return chart;
   };
 });
@@ -14162,240 +13715,255 @@ define('src/modules/chart/treemap',['require','d3'],function (require) {
   };
 });
 
-define('src/modules/component/chart',['require','d3'],function (require) {
+define('src/modules/layout/base',['require','d3'],function (require) {
   var d3 = require("d3");
 
-  return function chart() {
-    var gClass = "layer";
-    var chartClass = "chart";
-    var transform = null;
-    var datum = null;
-    var call = null;
+  return function format() {
+    // Private variables
+    var type = "rows"; // available types: 'rows', 'columns', 'grid'
+    var size = [500, 500]; // [width, height]
+    var rowScale = d3.scale.linear();
+    var columnScale = d3.scale.linear();
+    var numOfCols = 0;
 
-    function component(selection) {
-      selection.each(function (data, i) {
-        var g = d3.select(this)
-          .data(data, function (d) { return d; })
-          .append("g")
-          .attr("class", gClass);
+    function formatType(length, type, cols) {
+      var output = {};
 
-        g.selectAll("g")
-          .data(function (d) { return d; })
-          .enter().append("g")
-          .attr("class", chartClass)
-          .attr("transform", transform)
-          .datum(datum)
-          .call(call);
-      });
+      switch (type) {
+        case "grid":
+          output.rows = cols ? Math.ceil(length / cols) :
+            Math.round(Math.sqrt(length));
+          output.columns = cols ? cols : Math.ceil(Math.sqrt(length));
+          break;
+
+        case "columns":
+          output.rows = 1;
+          output.columns = length;
+          break;
+
+        default:
+          output.rows = length;
+          output.columns = 1;
+          break;
+      }
+
+      return output;
     }
 
-    component.gClass = function (_) {
-      if (!arguments.length) { return gClass; }
-      gClass = _;
-      return component;
-    };
+    function layout(data) {
+      var format = formatType(data.length, type, numOfCols);
+      var rows = format.rows;
+      var columns = format.columns;
+      var cellWidth = size[0] / columns;
+      var cellHeight = size[1] / rows;
+      var cell = 0;
 
-    component.chartClass = function (_) {
-      if (!arguments.length) { return chartClass; }
-      chartClass = _;
-      return component;
-    };
+      rowScale.domain([0, rows]).range([0, size[1]]);
+      columnScale.domain([0, columns]).range([0, size[0]]);
 
-    component.transform = function (_) {
-      if (!arguments.length) { return transform; }
-      transform = _;
-      return component;
-    };
+      d3.range(rows).forEach(function (row) {
+        d3.range(columns).forEach(function (col) {
+          if (!data[cell]) { return; }
 
-    component.datum = function (_) {
-      if (!arguments.length) { return datum; }
-      datum = _;
-      return component;
-    };
-
-    component.call = function (_) {
-      if (!arguments.length) { return call; }
-      call = _;
-      return component;
-    };
-
-    return component;
-  };
-});
-define('src/modules/chart/xyzplot',['require','d3','src/modules/component/axis','src/modules/component/chart'],function (require) {
-  var d3 = require("d3");
-  var axis = require("src/modules/component/axis");
-  var graphFunc = require("src/modules/component/chart");
-
-  return function xzyPlot() {
-    var margin = {top: 20, right: 20, bottom: 20, left: 50};
-    var width = 760;
-    var height = 120;
-    var elements = null;
-
-    // Axis options
-    var xAxis = {
-      cssClass: "x axis",
-      show: true,
-      scale: null,
-      title: "",
-      y: 6,
-      dy: ".71em",
-      titleAnchor: "end"
-    };
-
-    var yAxis = {
-      cssClass: "y axis",
-      show: true,
-      scale: null,
-      title: "",
-      y: 6,
-      dy: ".71em",
-      titleAnchor: "end"
-    };
-
-    var zAxis = {
-      cssClass: "z axis",
-      show: true,
-      scale: null,
-      title: "",
-      y: 6,
-      dy: ".71em",
-      titleAnchor: "end"
-    };
-
-    function chart(selection) {
-      selection.each(function (data) {
-        var svg = d3.select(this).selectAll("svg")
-          .data([data])
-          .enter().append("svg")
-          .attr("width", width + margin.left + margin.right)
-          .attr("height", height + margin.top + margin.bottom);
-
-        var g = svg.append("g")
-          .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-
-        elements = !(elements instanceof Array) ? [elements] : elements;
-
-        elements.forEach(function (element) {
-          if (typeof element === "function") {
-            g.append("g").call(element);
-          }
+          data[cell].dx = columnScale(col);
+          data[cell].dy = rowScale(row);
+          data[cell].height = cellHeight;
+          data[cell].width = cellWidth;
+          cell++;
         });
+      });
 
-        if (xAxis.show) {
-          var axisX = axis()
-            .scale(xAxis.scale)
-            .gClass(xAxis.cssClass)
-            .transform("translate(0," + yAxis.scale.range()[0] + ")")
-            .titleY(xAxis.y)
-            .titleDY(xAxis.dy)
-            .titleAnchor(xAxis.titleAnchor)
-            .title(xAxis.title);
+      return data;
+    }
 
-          g.call(axisX);
-        }
+    // Public API
+    layout.type = function (_) {
+      if (!arguments.length) { return type; }
+      type = _;
+      return layout;
+    };
 
-        if (yAxis.show) {
-          var axisY = axis()
-            .scale(yAxis.scale)
-            .orient("left")
-            .gClass(yAxis.cssClass)
-            .titleY(yAxis.y)
-            .titleDY(yAxis.dy)
-            .titleAnchor(yAxis.titleAnchor)
-            .title(yAxis.title);
+    layout.columns = function (_) {
+      if (!arguments.length) { return numOfCols; }
+      numOfCols = _;
+      return layout;
+    };
 
-          g.call(axisY);
-        }
+    layout.size = function (_) {
+      if (!arguments.length) { return size; }
+      size = _;
+      return layout;
+    };
 
-        if (zAxis.show) {
-          var axisZ = axis()
-            .scale(zAxis.scale)
-            .orient("right")
-            .gClass(zAxis.cssClass)
-            .transform("translate(" + xAxis.scale.range()[1] + "," + "0)")
-            .titleY(zAxis.y)
-            .titleDY(zAxis.dy)
-            .titleAnchor(zAxis.titleAnchor)
-            .title(zAxis.title);
+    return layout;
+  };
+});
 
-          g.call(axisZ);
-        }
+define('src/modules/layout/grid',['require','d3'],function (require) {
+  var d3 = require("d3");
+
+  return function grid() {
+    // Private variables
+    var gridSize = [500, 500];
+    var rowScale = d3.scale.linear();
+    var columnScale = d3.scale.linear();
+
+    function layout(data) {
+      var rows = Math.ceil(Math.sqrt(data.length));
+      var columns = rows;
+      var gridCellWidth = gridSize[0] / columns;
+      var gridCellHeight = gridSize[1] / rows;
+      var cell = 0;
+
+      rowScale.domain([0, rows]).range([0, gridSize[1]]);
+      columnScale.domain([0, columns]).range([0, gridSize[0]]);
+
+      d3.range(rows).forEach(function (row) {
+        d3.range(columns).forEach(function (col) {
+          if (!data[cell]) { return; }
+
+          data[cell].dx = columnScale(col);
+          data[cell].dy = rowScale(row);
+          data[cell].height = gridCellHeight;
+          data[cell].width = gridCellWidth;
+          cell++;
+        });
+      });
+
+      return data;
+    }
+
+    // Public API
+    layout.size = function (_) {
+      if (!arguments.length) { return gridSize; }
+      gridSize = _;
+      return layout;
+    };
+
+    return layout;
+  };
+});
+define('src/modules/element/svg/ellipse',['require','d3'],function (require) {
+  var d3 = require("d3");
+
+  return function ellipse() {
+    var accessor = function (d) { return d; };
+    var cx = function (d) { return d.x; };
+    var cy = function (d) { return d.y; };
+    var rx = 20;
+    var ry = 20;
+
+    // Options
+    var cssClass = "ellipses";
+    var fill = colorFill;
+    var stroke = colorFill;
+    var strokeWidth = 0;
+    var opacity = null;
+
+    function element(selection) {
+      selection.each(function (data, index) {
+        data = accessor.call(this, data, index);
+
+        var ellipses = d3.select(this)
+          .selectAll("." + cssClass)
+          .data(data);
+
+        // Exit
+        ellipses.exit().remove();
+
+        // Enter
+        ellipses.enter().append("ellipse");
+
+        // Update
+        ellipses
+          .attr("class", cssClass)
+          .attr("fill", fill)
+          .attr("stroke", stroke)
+          .attr("stroke-width", strokeWidth)
+          .attr("cx", cx)
+          .attr("cy", cy)
+          .attr("rx", rx)
+          .attr("ry", ry)
+          .style("opacity", opacity);
       });
     }
 
-    chart.margin = function (_) {
-      if (!arguments.length) { return margin; }
-      margin.top = typeof _.top !== "undefined" ? _.top : margin.top;
-      margin.right = typeof _.right !== "undefined" ? _.right : margin.right;
-      margin.bottom = typeof _.bottom !== "undefined" ? _.bottom : margin.bottom;
-      margin.left = typeof _.left !== "undefined" ? _.left : margin.left;
-      return chart;
+    function colorFill(d, i) {
+      return d3.scale.category10()(i);
+    }
+
+    // Public API
+    element.accessor = function (_) {
+      if (!arguments.length) { return accessor; }
+      accessor = _;
+      return element;
     };
 
-    chart.width = function (_) {
-      if (!arguments.length) { return width; }
-      width = _;
-      return chart;
+    element.cx = function (_) {
+      if (!arguments.length) { return cx; }
+      cx = _;
+      return element;
     };
 
-    chart.height = function (_) {
-      if (!arguments.length) { return height; }
-      height = _;
-      return chart;
+    element.cy = function (_) {
+      if (!arguments.length) { return cy; }
+      cy = _;
+      return element;
     };
 
-    chart.xAxis = function (_) {
-      if (!arguments.length) { return xAxis; }
-      xAxis.cssClass = typeof _.cssClass !== "undefined" ? _.cssClass : xAxis.cssClass;
-      xAxis.scale = typeof _.scale !== "undefined" ? _.scale : xAxis.scale;
-      xAxis.y = typeof _.y !== "undefined" ? _.y : xAxis.y;
-      xAxis.dy = typeof _.dy !== "undefined" ? _.dy : xAxis.dy;
-      xAxis.titleAnchor = typeof _.titleAnchor !== "undefined" ? _.titleAnchor : xAxis.titleAnchor;
-      xAxis.title = typeof _.title !== "undefined" ? _.title : xAxis.title;
-      return chart;
+    element.rx = function (_) {
+      if (!arguments.length) { return rx; }
+      rx = _;
+      return element;
     };
 
-    chart.yAxis = function (_) {
-      if (!arguments.length) { return yAxis; }
-      yAxis.cssClass = typeof _.cssClass !== "undefined" ? _.cssClass : yAxis.cssClass;
-      yAxis.scale = typeof _.scale !== "undefined" ? _.scale : yAxis.scale;
-      yAxis.y = typeof _.y !== "undefined" ? _.y : yAxis.y;
-      yAxis.dy = typeof _.dy !== "undefined" ? _.dy : yAxis.dy;
-      yAxis.titleAnchor = typeof _.titleAnchor !== "undefined" ? _.titleAnchor : yAxis.titleAnchor;
-      yAxis.title = typeof _.title !== "undefined" ? _.title : yAxis.title;
-      return chart;
+    element.ry = function (_) {
+      if (!arguments.length) { return ry; }
+      ry = _;
+      return element;
     };
 
-    chart.zAxis = function (_) {
-      if (!arguments.length) { return zAxis; }
-      zAxis.cssClass = typeof _.cssClass !== "undefined" ? _.cssClass : zAxis.cssClass;
-      zAxis.scale = typeof _.scale !== "undefined" ? _.scale : zAxis.scale;
-      zAxis.y = typeof _.y !== "undefined" ? _.y : zAxis.y;
-      zAxis.dy = typeof _.dy !== "undefined" ? _.dy : zAxis.dy;
-      zAxis.titleAnchor = typeof _.titleAnchor !== "undefined" ? _.titleAnchor : zAxis.titleAnchor;
-      zAxis.title = typeof _.title !== "undefined" ? _.title : zAxis.title;
-      return chart;
+    element.class = function (_) {
+      if (!arguments.length) { return cssClass; }
+      cssClass = _;
+      return element;
     };
 
-    chart.elements = function (_) {
-      if (!arguments.length) { return elements; }
-      elements = _;
-      return chart;
+    element.fill = function (_) {
+      if (!arguments.length) { return fill; }
+      fill = _;
+      return element;
     };
 
-    return chart;
+    element.opacity = function (_) {
+      if (!arguments.length) { return opacity; }
+      opacity = _;
+      return element;
+    };
+
+    element.stroke = function (_) {
+      if (!arguments.length) { return stroke; }
+      stroke = _;
+      return element;
+    };
+
+    element.strokeWidth = function (_) {
+      if (!arguments.length) { return strokeWidth; }
+      strokeWidth = _;
+      return element;
+    };
+
+    return element;
   };
 });
-define('src/modules/element/svg/image',['require','d3','src/modules/component/events'],function (require) {
+
+define('src/modules/element/svg/image',['require','d3'],function (require) {
   var d3 = require("d3");
-  var events = require("src/modules/component/events");
 
   return function image() {
+    var accessor = function (d) { return d; };
     var x = function (d) { return d.x; };
     var y = function (d) { return d.y; };
-    var values = null;
     var width = 10;
     var height = 10;
     var xlink = null;
@@ -14403,14 +13971,14 @@ define('src/modules/element/svg/image',['require','d3','src/modules/component/ev
 
     // Options
     var cssClass = "image";
-    var listeners = {};
 
     function element(selection) {
       selection.each(function (data, index) {
-        var imageEvents = events().listeners(listeners);
+        data = accessor.call(this, data, index);
 
-        var images = d3.select(this).selectAll("images")
-          .data(values ? values : data);
+        var images = d3.select(this)
+          .selectAll("." + cssClass)
+          .data(data);
 
         // Exit
         images.exit().remove();
@@ -14427,15 +13995,13 @@ define('src/modules/element/svg/image',['require','d3','src/modules/component/ev
           .attr("height", height)
           .attr("xlink:href", xlink)
           .attr("preserveAspectRatio", preserveAspectRatio);
-
-        images.call(imageEvents);
       });
     }
 
     // Public API
-    element.data = function (_) {
-      if (!arguments.length) { return values; }
-      values = _;
+    element.accessor = function (_) {
+      if (!arguments.length) { return accessor; }
+      accessor = _;
       return element;
     };
     
@@ -14475,15 +14041,9 @@ define('src/modules/element/svg/image',['require','d3','src/modules/component/ev
       return element;
     };
 
-    element.cssClass= function (_) {
+    element.class = function (_) {
       if (!arguments.length) { return cssClass; }
       cssClass = _;
-      return element;
-    };
-
-    element.listeners = function (_) {
-      if (!arguments.length) { return listeners; }
-      listeners = _;
       return element;
     };
 
@@ -14491,397 +14051,52 @@ define('src/modules/element/svg/image',['require','d3','src/modules/component/ev
   };
 });
 
-define('src/modules/map/tile',['require','d3','src/modules/element/svg/image'],function (require) {
-  var d3 = require("d3");
-  var image = require("src/modules/element/svg/image");
-
-  return function tile() {
-    var width = 960;
-    var height = 500;
-    var projection = d3.geo.mercator();
-    var projectionScale = 120;
-    var center = [12, 42];
-    var tileLink = function (d) {
-      return "http://" + ["a", "b", "c", "d"][Math.random() * 4 | 0] +
-        ".tiles.mapbox.com/v3/examples.map-zgrqqx0w/" + d[2] + "/" + d[0] + "/" + d[1] + ".png";
-    };
-
-    function map(selection) {
-      selection.each(function (data, i) {
-        var tile = d3.geo.tile()
-          .size([width, height]);
-
-        projection.scale(projectionScale).translate([width / 2, height / 2]);
-
-        var cntr = projection(center);
-
-        var zoom = d3.behavior.zoom()
-          .scale(projection.scale() * 2 * Math.PI)
-          .translate([width - cntr[0], height - cntr[1]])
-          .on("zoom", redraw);
-
-        var svg = d3.select(this).append("svg")
-          .attr("width", width)
-          .attr("height", height);
-
-        var g = svg.append("g")
-          .attr("id", "tiles");
-
-        svg.call(zoom);
-        redraw();
-
-        function redraw() {
-          var tiles = tile
-            .scale(zoom.scale())
-            .translate(zoom.translate())();
-
-          g.attr("transform", "scale(" + tiles.scale + ") translate(" + tiles.translate + ")");
-
-          var images = image()
-            .xlink(tileLink)
-            .width(1)
-            .height(1)
-            .x(function (d) { return d[0]; })
-            .y(function (d) { return d[1]; });
-
-          g.datum(tiles).call(images);
-        }
-      });
-    }
-
-    map.width = function (_) {
-      if (!arguments.length) { return width; }
-      width = _;
-      return map;
-    };
-
-    map.height = function (_) {
-      if (!arguments.length) { return height; }
-      height = _;
-      return map;
-    };
-
-    map.projection = function (_) {
-      if (!arguments.length) { return projection; }
-      projection = _;
-      return map;
-    };
-
-    map.projectionScale = function (_) {
-      if (!arguments.length) { return projectionScale; }
-      projectionScale = _;
-      return map;
-    };
-
-    map.center = function (_) {
-      if (!arguments.length) { return center; }
-      center = _;
-      return map;
-    };
-
-    map.tileLink = function (_) {
-      if (!arguments.length) { return tileLink; }
-      tileLink = _;
-      return map;
-    };
-
-    return map;
-  };
-});
-define('src/modules/helpers/format_options',[],function () {
-  return function (length, type) {
-    var output = {};
-
-    switch (type) {
-      case "grid":
-        output.rows = Math.round(Math.sqrt(length));
-        output.columns = Math.ceil(Math.sqrt(length));
-        break;
-
-      case "columns":
-        output.rows = 1;
-        output.columns = length;
-        break;
-
-      default:
-        output.rows = length;
-        output.columns = 1;
-        break;
-    }
-
-    return output;
-  };
-});
-define('src/modules/layout/format',['require','d3','src/modules/helpers/format_options'],function (require) {
-  var d3 = require("d3");
-  var getFormat = require("src/modules/helpers/format_options");
-
-  return function format() {
-    var type = "rows"; // type: 'rows', 'columns', 'grid'
-    var size = [500, 500]; // [width, height]
-    var rowScale = d3.scale.linear();
-    var columnScale = d3.scale.linear();
-
-    function layout(data) {
-      var format = getFormat(data.length, type);
-      var rows = format.rows;
-      var columns = format.columns;
-      var cellWidth = size[0] / columns;
-      var cellHeight = size[1] / rows;
-      var cell = 0;
-
-      rowScale.domain([0, rows]).range([0, size[1]]);
-      columnScale.domain([0, columns]).range([0, size[0]]);
-
-      d3.range(rows).forEach(function (row) {
-        d3.range(columns).forEach(function (col) {
-          if (!data[cell]) { return; }
-
-          data[cell].dx = columnScale(col);
-          data[cell].dy = rowScale(row);
-          data[cell].height = cellHeight;
-          data[cell].width = cellWidth;
-          cell++;
-        });
-      });
-
-      return data;
-    }
-
-    // Public API
-    layout.type = function (_) {
-      if (!arguments.length) { return type; }
-      type = _;
-      return layout;
-    };
-
-    layout.size = function (_) {
-      if (!arguments.length) { return size; }
-      size = _;
-      return layout;
-    };
-
-    return layout;
-  };
-});
-
-define('src/modules/layout/grid',['require','d3'],function (require) {
-  var d3 = require("d3");
-
-  return function grid() {
-    var gridSize = [500, 500];
-    var rowScale = d3.scale.linear();
-    var columnScale = d3.scale.linear();
-
-    function layout(data) {
-      var rows = Math.ceil(Math.sqrt(data.length));
-      var columns = rows;
-      var gridCellWidth = gridSize[0] / columns;
-      var gridCellHeight = gridSize[1] / rows;
-      var cell = 0;
-
-      rowScale.domain([0, rows]).range([0, gridSize[1]]);
-      columnScale.domain([0, columns]).range([0, gridSize[0]]);
-
-      d3.range(rows).forEach(function (row) {
-        d3.range(columns).forEach(function (col) {
-          if (!data[cell]) { return; }
-
-          data[cell].x = columnScale(col);
-          data[cell].y = rowScale(row);
-          data[cell].height = gridCellHeight;
-          data[cell].width = gridCellWidth;
-          cell++;
-        });
-      });
-
-      return data;
-    }
-
-    layout.size = function (_) {
-      if (!arguments.length) { return gridSize; }
-      gridSize = _;
-      return layout;
-    };
-
-    return layout;
-  };
-});
-define('src/modules/element/svg/ellipse',['require','d3','src/modules/component/events'],function (require) {
-  var d3 = require("d3");
-  var events = require("src/modules/component/events");
-
-  return function ellipse() {
-    var cx = function (d) { return d.x; };
-    var cy = function (d) { return d.y; };
-    var rx = 20;
-    var ry = 20;
-    var color = d3.scale.category20c();
-    var values = null;
-
-    // Options
-    var cssClass = "ellipses";
-    var fill = null;
-    var stroke = null;
-    var strokeWidth = 0;
-    var opacity = null;
-    var listeners = {};
-
-    function element(selection) {
-      selection.each(function (data, index) {
-        var ellipseEvents = events()
-          .listeners(listeners);
-
-        var ellipses = d3.select(this).selectAll("ellipses")
-          .data(values ? values : data);
-
-        // Exit
-        ellipses.exit().remove();
-
-        // Enter
-        ellipses.enter().append("ellipse");
-
-        // Update
-        ellipses
-          .attr("class", cssClass)
-          .attr("fill", fill ? fill : colorFill)
-          .attr("stroke", stroke ? stroke : colorFill)
-          .attr("stroke-width", strokeWidth)
-          .attr("cx", cx)
-          .attr("cy", cy)
-          .attr("rx", rx)
-          .attr("ry", ry)
-          .style("opacity", opacity);
-
-        ellipses.call(ellipseEvents);
-      });
-    }
-
-    function colorFill(d, i) {
-      return color(i);
-    }
-
-    // Public API
-    element.data = function (_) {
-      if (!arguments.length) { return values; }
-      values = _;
-      return element;
-    };
-
-    element.cx = function (_) {
-      if (!arguments.length) { return cx; }
-      cx = _;
-      return element;
-    };
-
-    element.cy = function (_) {
-      if (!arguments.length) { return cy; }
-      cy = _;
-      return element;
-    };
-
-    element.rx = function (_) {
-      if (!arguments.length) { return rx; }
-      rx = _;
-      return element;
-    };
-
-    element.ry = function (_) {
-      if (!arguments.length) { return ry; }
-      ry = _;
-      return element;
-    };
-
-    element.cssClass = function (_) {
-      if (!arguments.length) { return cssClass; }
-      cssClass = _;
-      return element;
-    };
-
-    element.color = function (_) {
-      if (!arguments.length) { return color; }
-      color = _;
-      return element;
-    };
-
-    element.fill = function (_) {
-      if (!arguments.length) { return fill; }
-      fill = _;
-      return element;
-    };
-
-    element.opacity = function (_) {
-      if (!arguments.length) { return opacity; }
-      opacity = _;
-      return element;
-    };
-
-    element.stroke = function (_) {
-      if (!arguments.length) { return stroke; }
-      stroke = _;
-      return element;
-    };
-
-    element.strokeWidth = function (_) {
-      if (!arguments.length) { return strokeWidth; }
-      strokeWidth = _;
-      return element;
-    };
-
-    element.listeners = function (_) {
-      if (!arguments.length) { return listeners; }
-      listeners = _;
-      return element;
-    };
-
-    return element;
-  };
-});
-
-define('jubilee',['require','src/modules/chart/area','src/modules/chart/bar','src/modules/chart/boxplot','src/modules/chart/dendrogram','src/modules/chart/heatmap','src/modules/chart/histogram','src/modules/chart/line','src/modules/chart/pie','src/modules/chart/scatterplot','src/modules/chart/sunburst','src/modules/chart/treemap','src/modules/chart/xyzplot','src/modules/map/tile','src/modules/layout/box','src/modules/layout/format','src/modules/layout/grid','src/modules/component/axis','src/modules/component/boxplot','src/modules/component/brush','src/modules/component/chart','src/modules/component/events','src/modules/element/svg/circle','src/modules/element/svg/clipPath','src/modules/element/svg/ellipse','src/modules/element/svg/image','src/modules/element/svg/line','src/modules/element/svg/path','src/modules/element/svg/rect','src/modules/element/canvas/rect'],function (require) {
+define('jubilee',['require','src/modules/chart/boxplot','src/modules/chart/dendrogram','src/modules/chart/heatmap','src/modules/chart/pie','src/modules/chart/series','src/modules/chart/sunburst','src/modules/chart/treemap','src/modules/layout/base','src/modules/layout/box','src/modules/layout/grid','src/modules/component/axis/rotate','src/modules/component/axis/truncate','src/modules/component/series/area','src/modules/component/axis/axis','src/modules/component/series/bars','src/modules/component/boxplot','src/modules/component/events/brush','src/modules/component/clippath','src/modules/component/events/events','src/modules/component/series/line','src/modules/component/series/points','src/modules/element/svg/circle','src/modules/element/svg/ellipse','src/modules/element/svg/image','src/modules/element/svg/line','src/modules/element/svg/path','src/modules/element/svg/rect','src/modules/element/svg/text','src/modules/element/canvas/rect','builder','functor','valuator'],function (require) {
   return {
-    version: "0.1.0",
     chart: {
-      area: require("src/modules/chart/area"),
-      bar: require("src/modules/chart/bar"),
       boxplot: require("src/modules/chart/boxplot"),
       dendrogram: require("src/modules/chart/dendrogram"),
       heatmap: require("src/modules/chart/heatmap"),
-      histogram: require("src/modules/chart/histogram"),
-      line: require("src/modules/chart/line"),
       pie: require("src/modules/chart/pie"),
-      scatter : require("src/modules/chart/scatterplot"),
+      series: require("src/modules/chart/series"),
       sunburst: require("src/modules/chart/sunburst"),
-      treemap: require("src/modules/chart/treemap"),
-      xyzplot: require("src/modules/chart/xyzplot")
-    },
-    map: {
-      tile: require("src/modules/map/tile")
+      treemap: require("src/modules/chart/treemap")
     },
     layout: {
+      base: require("src/modules/layout/base"),
       box: require("src/modules/layout/box"),
-      format: require("src/modules/layout/format"),
       grid: require("src/modules/layout/grid")
     },
+    axis: {
+      rotate: require("src/modules/component/axis/rotate"),
+      truncate: require("src/modules/component/axis/truncate")
+    },
     component: {
-      axis: require("src/modules/component/axis"),
+      area: require("src/modules/component/series/area"),
+      axis: require("src/modules/component/axis/axis"),
+      bars: require("src/modules/component/series/bars"),
       boxplot: require("src/modules/component/boxplot"),
-      brush: require("src/modules/component/brush"),
-      chart: require("src/modules/component/chart"),
-      events: require("src/modules/component/events")
+      brush: require("src/modules/component/events/brush"),
+      clipPath: require("src/modules/component/clippath"),
+      events: require("src/modules/component/events/events"),
+      line: require("src/modules/component/series/line"),
+      points: require("src/modules/component/series/points")
     },
     svg: {
       circle: require("src/modules/element/svg/circle"),
-      clipPath: require("src/modules/element/svg/clipPath"),
       ellipse: require("src/modules/element/svg/ellipse"),
       image: require("src/modules/element/svg/image"),
       line: require("src/modules/element/svg/line"),
       path: require("src/modules/element/svg/path"),
-      rect: require("src/modules/element/svg/rect")
+      rect: require("src/modules/element/svg/rect"),
+      text: require("src/modules/element/svg/text")
     },
     canvas: {
       rect: require("src/modules/element/canvas/rect")
-    }
+    },
+    builder: require("builder"),
+    functor: require("functor"),
+    valuator: require("valuator")
   };
 });
 

@@ -2,188 +2,213 @@ define(function (require) {
   var d3 = require("d3");
   var svgRect = require("src/modules/element/svg/rect");
   var canvasRect = require("src/modules/element/canvas/rect");
-  var axis = require("src/modules/component/axis");
+  var axis = require("src/modules/component/axis/axis");
+  var events = require("src/modules/component/events/events");
+  var valuator = require("valuator");
+  var addEventListener = require("src/modules/helpers/add_event_listener");
+  var removeEventListener = require("src/modules/helpers/remove_event_listener");
 
   return function heatmap() {
     // Private variables
     var margin = { top: 20, right: 20, bottom: 20, left: 50 };
     var width = 960;
     var height = 500;
-    var color = d3.scale.category10();
+    var xValue = function (d) { return d.x; };
+    var yValue = function (d) { return d.y; };
+    var rectPadding = 0.1;
     var isCanvas = false;
 
-    var rect = {
-      cssClass: "rect",
-      x: function (d) { return d.x; },
-      y: function (d) { return d.y; },
-      fill: function (d) { return d.fill; },
-      opacity: function (d) { return 1; },
-      strokeWidth: 0,
-      padding: 0.1
+    var xScale = {
+      domain: null,
+      reverse: false,
+      sort: false
     };
 
-    var axisX = { 
+    var yScale = {
+      domain: null,
+      reverse: false,
+      sort: false
+    };
+
+    var rect = {
+      class: "rect",
+      fill: function (d) { return d.fill; },
+      opacity: function () { return 1; },
+      strokeWidth: 0
+    };
+
+    var xAxis = {
       show: true,
-      axisClass: "x axis", 
-      titleClass: "x-label",
-      x: function () { return width / 2; },
-      y: 30,
-      dy: ".35em",
-      textAnchor: "start",
-      title: "",
+      class: "x axis",
+      title: { class: "x-label", text: "" },
+      tick: {},
+      tickText: {
+        x: 0,
+        y: 9,
+        dy: ".71em",
+        anchor: "middle"
+      },
       filterTicksBy: 1,
       tickRotate: 270
     };
 
-    var axisY = {
+    var yAxis = {
       show: true,
-      axisClass: "y axis", 
-      titleClass: "y-label",
-      x: function () { return -height / 2; },
-      y: -60,
-      dy: ".35em",
-      textAnchor: "start",
-      title: "",
+      class: "y axis",
+      title: { class: "y-label", text: "" },
+      tick: {},
+      tickText: {
+        x: -9,
+        y: 0,
+        dy: ".35em",
+        anchor: "end"
+      },
       filterTicksBy: 1
     };
+
+    var listeners = {};
 
     function chart(selection) {
       selection.each(function (data, index) {
         var canvas;
 
-        var xScale = d3.scale.ordinal()
-          .domain(getDomain(data, "x"))
-          .rangeBands([0, width], rect.padding);
-
-        var yScale = d3.scale.ordinal()
-          .domain(getDomain(data, "y"))
-          .rangeBands([height, 0], rect.padding);
-
         width = width - margin.left - margin.right;
         height = height - margin.top - margin.bottom;
 
+        var xDomain = xScale.domain || getDomain(data, xValue);
+        var yDomain = yScale.domain || getDomain(data, yValue);
+
+        if (xScale.sort) {
+          xDomain.sort(typeof xScale.sort === "function" ? xScale.sort : ascending);
+        }
+        if (yScale.sort) {
+          yDomain.sort(typeof yScale.sort === "function" ? yScale.sort : ascending);
+        }
+        if (xScale.reverse) { xDomain.reverse(); }
+        if (yScale.reverse) { yDomain.reverse(); }
+
+        var x = d3.scale.ordinal()
+          .domain(xDomain)
+          .rangeBands([0, width], rectPadding);
+
+        var y = d3.scale.ordinal()
+          .domain(yDomain)
+          .rangeBands([0, height], rectPadding);
+
         data.forEach(function (d, i) {
-          d.x = rect.x.call(data, d, i);
-          d.y = rect.y.call(data, d, i);
+          d.dx = xValue.call(data, d, i);
+          d.dy = yValue.call(data, d, i);
           d.fill = rect.fill.call(data, d, i);
           d.opacity = rect.opacity.call(data, d, i);
         });
 
-        var padding = Object.keys(margin).map(function (key) {
-          return margin[key];
-        }).join("px ") + "px";
+        var padding = Object.keys(margin)
+          .map(function (key) {
+            return margin[key];
+          }).join("px ") + "px";
 
         if (isCanvas) {
           var canvasRects = canvasRect()
-            .cssClass(rect.cssClass)
-            .x(function (d) { return xScale(d.x); })
-            .y(function (d) { return yScale(d.y); })
-            .width(xScale.rangeBand())
-            .height(yScale.rangeBand())
-            .fillStyle(function (d) { return color(d.fill); })
-            .opacity(function (d) { return d.opacity; })
-            .strokeStyle(function (d) { return color(d.fill); })
-            .lineWidth(rect.strokeWidth);
+            .class(rect.class)
+            .x(function (d) { return x(d.dx); })
+            .y(function (d) { return y(d.dy); })
+            .width(x.rangeBand())
+            .height(y.rangeBand())
+            .fillStyle(rect.fill)
+            .strokeStyle(rect.stroke)
+            .lineWidth(rect.strokeWidth)
+            .opacity(rect.opacity);
 
           canvas = d3.select(this).append("canvas")
-            .attr("width", width + margin.left + margin.right)
-            .attr("height", height + margin.top + margin.bottom)
+            .attr("width", width)
+            .attr("height", height)
             .style("padding", padding);
 
           canvas.datum(data).call(canvasRects);
         }
 
-        var svg = d3.select(this).append("svg")
-          .attr("width", width + margin.left + margin.right)
-          .attr("height", height + margin.top + margin.bottom)
-          .style("padding", padding)
-          .on("mousemove", function (d, i) {
-            var x = d3.event.clientX;
-            var y = d3.event.clientY;
-          });
+        var svgEvents = events().listeners(listeners);
 
-        var g = svg.append("g")
-          .attr("transform", "translate(0,0)");
-          //.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+        var svg = d3.select(this).append("svg")
+          .attr("width", width)
+          .attr("height", height)
+          .style("padding", padding)
+          .call(svgEvents);
+
+        var g = svg.append("g").attr("transform", "translate(0,0)");
 
         if (!isCanvas) {
           var svgRects = svgRect()
-            .cssClass(rect.cssClass)
-            .x(function (d) { return xScale(d.x); })
-            .y(function (d) { return yScale(d.y); })
-            .width(xScale.rangeBand())
-            .height(yScale.rangeBand())
-            .fill(function (d) { return color(d.fill); })
-            .stroke(function (d) { return color(d.fill); })
+            .class(rect.class)
+            .x(function (d) { return x(d.dx); })
+            .y(function (d) { return y(d.dy); })
+            .width(x.rangeBand())
+            .height(y.rangeBand())
+            .fill(rect.fill)
+            .stroke(rect.stroke)
             .strokeWidth(rect.strokeWidth)
-            .opacity(function (d) { return d.opacity; });
+            .opacity(rect.opacity);
 
-          g.datum(data).call(svgRects);
+          g.append("g")
+            .attr("class", "heat-rect")
+            .datum(data).call(svgRects);
         }
 
-        if (axisX.show) {
-          var xAxis = axis()
-            .scale(xScale)
-            .transform("translate(0," + height + ")")
-            .gClass(axisX.axisClass)
+        if (xAxis.show) {
+          var axisX = axis()
+            .scale(x)
+            .class(xAxis.class)
+            .transform(xAxis.transform || "translate(0," + height + ")")
             .tick({
-              values: xScale.domain()
+              values: x.domain()
                 .filter(function (d, i) {
-                  return !(i % axisX.filterTicksBy);
+                  return (i % xAxis.filterTicksBy) === 0;
                 })
             })
-            .title({
-              x: axisX.x,
-              y: axisY.y,
-              dy: axisX.dy,
-              anchor: axisX.textAnchor,
-              text: axisX.title
-            });
+            .tickText(xAxis.tickText)
+            .title(xAxis.title);
 
-          g.call(xAxis);
+          g.call(axisX);
 
           // Modifying the x axis tick labels
-          g.selectAll(".x.axis .tick text")
+          g.selectAll(".tick text")
             .attr("x", -10)
             .attr("y", -4)
-            .attr("transform", "rotate(" + axisX.tickRotate + ")")
+            .attr("transform", "rotate(" + xAxis.tickRotate + ")")
             .style("text-anchor", "end");
         }
 
-        if (axisY.show) {
-          var yAxis = axis()
-            .scale(yScale)
-            .gClass(axisY.axisClass)
+        if (yAxis.show) {
+          var axisY = axis()
+            .scale(y)
+            .class(yAxis.class)
             .orient("left")
             .tick({
-              values: yScale.domain()
+              values: y.domain()
                 .filter(function (d, i) {
-                  return !(i % axisY.filterTicksBy);
+                  return (i % yAxis.filterTicksBy) === 0;
                 })
             })
-            .title({
-              titleClass: axisY.titleClass,
-              x: axisY.x,
-              y: axisY.y,
-              dy: axisY.dy,
-              anchor: axisY.textAnchor,
-              text: axisY.title
-            });
+            .tickText(yAxis.tickText)
+            .title(yAxis.title);
 
-          g.call(yAxis);
+          g.call(axisY);
         }
       });
     }
 
+    // Sort ascending
+    function ascending(prev, cur) {
+      if (prev > cur) { return 1; }
+      if (prev < cur) { return -1; }
+      return 0;
+    }
+
+    // Creates a unique array of items
     function getDomain(data, accessor) {
       return data
         .map(function (item) {
-          return item[accessor];
-        })
-        .sort(function (prev, cur) {
-          if (prev > cur) return 1;
-          if (prev < cur) return -1;
-          return 0;
+          return accessor.call(this, item);
         })
         .filter(function (item, index, array) {
           return array.indexOf(item) === index;
@@ -201,73 +226,103 @@ define(function (require) {
     };
 
     chart.width = function (_) {
-      if (!arguments.length) return width;
-      width = _;
+      if (!arguments.length) { return width; }
+      width = typeof _ !== "number" ? width : _;
       return chart;
     };
 
     chart.height = function (_) {
-      if (!arguments.length) return height;
-      height = _;
+      if (!arguments.length) { return height; }
+      height = typeof _ !== "number" ? height : _;
       return chart;
     };
 
-    chart.color = function (_) {
-      if (!arguments.length) return color;
-      color = _;
+    chart.x = function (_) {
+      if (!arguments.length) { return xValue; }
+      xValue = valuator(_);
+      return chart;
+    };
+
+    chart.y = function (_) {
+      if (!arguments.length) { return yValue; }
+      yValue = valuator(_);
+      return chart;
+    };
+
+    chart.xScale = function (_) {
+      if (!arguments.length) { return xScale; }
+      xScale.domain = typeof _.domain !== "undefined" ? _.domain : xScale.domain;
+      xScale.reverse = typeof _.reverse !== "undefined" ? _.reverse : xScale.reverse;
+      xScale.sort = typeof _.sort !== "undefined" ? _.sort : xScale.sort;
+      return chart;
+    };
+
+    chart.yScale = function (_) {
+      if (!arguments.length) { return yScale; }
+      yScale.domain = typeof _.domain !== "undefined" ? _.domain : yScale.domain;
+      yScale.reverse = typeof _.reverse !== "undefined" ? _.reverse : yScale.reverse;
+      yScale.sort = typeof _.sort !== "undefined" ? _.sort : yScale.sort;
+      return chart;
+    };
+
+    chart.padding = function (_) {
+      if (!arguments.length) { return rectPadding; }
+      rectPadding = typeof _ !== "number" ? rectPadding : _;
       return chart;
     };
 
     chart.canvas = function (_) {
-      if (!arguments.length) return isCanvas;
-      isCanvas = _;
+      if (!arguments.length) { return isCanvas; }
+      isCanvas = typeof _ === "boolean" ? _ : false;
       return chart;
     };
 
     chart.rect = function (_) {
       if (!arguments.length) { return rect; }
-      rect.x = typeof _.x !== "undefined" ? _.x : rect.x;
-      rect.y = typeof _.y !== "undefined" ? _.y : rect.y;
-      rect.color = typeof _.color !== "undefined" ? _.color : rect.color;
-      rect.cssClass = typeof _.cssClass !== "undefined" ? _.cssClass : rect.cssClass;
+      rect.class = typeof _.class !== "undefined" ? _.class : rect.class;
+      rect.stroke = typeof _.stroke !== "undefined" ? _.stroke : rect.stroke;
       rect.strokeWidth = typeof _.strokeWidth !== "undefined" ? _.strokeWidth : rect.strokeWidth;
-      rect.fill = typeof _.fill !== "undefined" ? _.fill : rect.fill;
-      rect.opacity = typeof _.opacity !== "undefined" ? _.opacity : rect.opacity;
-      rect.padding = typeof _.padding !== "undefined" ? _.padding : rect.padding;
+      rect.fill = typeof _.fill !== "undefined" ? d3.functor(_.fill) : rect.fill;
+      rect.opacity = typeof _.opacity !== "undefined" ? d3.functor(_.opacity) : rect.opacity;
       return chart;
     };
 
     chart.xAxis = function (_) {
-      if (!arguments.length) { return axisX; }
-      axisX.show = typeof _.show !== "undefined" ? _.show : axisX.show;
-      axisX.axisClass = typeof _.axisClass !== "undefined" ? _.axisClass : axisX.axisClass;
-      axisX.titleClass = typeof _.titleClass !== "undefined" ? _.titleClass : axisX.titleClass;
-      axisX.x = typeof _.x !== "undefined" ? _.x : axisX.x;
-      axisX.y = typeof _.y !== "undefined" ? _.y : axisX.y;
-      axisX.dy = typeof _.dy !== "undefined" ? _.dy : axisX.dy;
-      axisX.tickValues = typeof _.tickValues !== "undefined" ? _.tickValues: axisX.tickValues;
-      axisX.textAnchor = typeof _.textAnchor !== "undefined" ? _.textAnchor : axisX.textAnchor;
-      axisX.title = typeof _.title !== "undefined" ? _.title : axisX.title;
-      axisX.filterTicksBy = typeof _.filterTicksBy !== "undefined" ? _.filterTicksBy : axisX.filterTicksBy;
-      axisX.tickRotate = typeof _.tickRotate !== "undefined" ? _.tickRotate : axisX.tickRotate;
+      if (!arguments.length) { return xAxis; }
+      xAxis.show = typeof _.show !== "undefined" ? _.show : xAxis.show;
+      xAxis.class = typeof _.class !== "undefined" ? _.class : xAxis.class;
+      xAxis.transform = typeof _.transform !== "undefined" ? _.transform : xAxis.transform;
+      xAxis.tick = typeof _.tick !== "undefined" ? _.tick : xAxis.tick;
+      xAxis.tickText = typeof _.tickText!== "undefined" ? _.tickText: xAxis.tickText;
+      xAxis.title = typeof _.title !== "undefined" ? _.title : xAxis.title;
+      xAxis.filterTicksBy = typeof _.filterTicksBy !== "undefined" ? _.filterTicksBy : xAxis.filterTicksBy;
+      xAxis.tickRotate = typeof _.tickRotate !== "undefined" ? _.tickRotate : xAxis.tickRotate;
       return chart;
     };
 
     chart.yAxis = function (_) {
-      if (!arguments.length) { return axisY; }
-      axisY.show = typeof _.show !== "undefined" ? _.show : axisY.show;
-      axisY.axisClass = typeof _.axisClass !== "undefined" ? _.axisClass : axisY.axisClass;
-      axisY.titleClass = typeof _.titleClass !== "undefined" ? _.titleClass : axisY.titleClass;
-      axisY.x = typeof _.x !== "undefined" ? _.x : axisY.x;
-      axisY.y = typeof _.y !== "undefined" ? _.y : axisY.y;
-      axisY.dy = typeof _.dy !== "undefined" ? _.dy : axisY.dy;
-      axisY.tickValues = typeof _.tickValues !== "undefined" ? _.tickValues: axisY.tickValues;
-      axisY.textAnchor = typeof _.textAnchor !== "undefined" ? _.textAnchor : axisY.textAnchor;
-      axisY.title = typeof _.title !== "undefined" ? _.title : axisY.title;
-      axisY.filterTicksBy = typeof _.filterTicksBy !== "undefined" ? _.filterTicksBy : axisY.filterTicksBy;
+      if (!arguments.length) { return yAxis; }
+      yAxis.show = typeof _.show !== "undefined" ? _.show : yAxis.show;
+      yAxis.gridlines = typeof _.gridlines !== "undefined" ? _.gridlines : yAxis.gridlines;
+      yAxis.class = typeof _.class !== "undefined" ? _.class : yAxis.class;
+      yAxis.transform = typeof _.transform !== "undefined" ? _.transform : yAxis.transform;
+      yAxis.tick = typeof _.tick !== "undefined" ? _.tick : yAxis.tick;
+      yAxis.tickText = typeof _.tickText!== "undefined" ? _.tickText: yAxis.tickText;
+      yAxis.title = typeof _.title !== "undefined" ? _.title : yAxis.title;
+      yAxis.filterTicksBy = typeof _.filterTicksBy !== "undefined" ? _.filterTicksBy : yAxis.filterTicksBy;
       return chart;
     };
 
+    chart.listeners = function (_) {
+      if (!arguments.length) { return listeners; }
+      listeners = typeof _ !== "object" ? listeners : _;
+      return chart;
+    };
+
+    chart.on = addEventListener(chart);
+
+    chart.off = removeEventListener(chart);
+
     return chart;
-  }
+  };
 });

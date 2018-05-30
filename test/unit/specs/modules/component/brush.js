@@ -1,7 +1,7 @@
 define(function (require) {
   describe("Component: Brush tests", function () {
     var d3 = require("d3");
-    var brushFunction = require("src/modules/component/brush");
+    var brushFunction = require("src/modules/component/events/brush");
     var d3fixture = require("fixtures/fixture");
     var remove = require("fixtures/remove");
     var fixture;
@@ -97,21 +97,21 @@ define(function (require) {
       });
     });
 
-    describe("cssClass API", function () {
+    describe("class API", function () {
       var cssClass = "brush";
       var newClass = "special-brush";
 
       beforeEach(function () {
-        brush.cssClass(cssClass);
+        brush.class(cssClass);
       });
 
       it("should return the css class", function () {
-        chai.assert.equal(brush.cssClass(), cssClass);
+        chai.assert.equal(brush.class(), cssClass);
       });
 
       it("should set the css class", function () {
-        brush.cssClass(newClass);
-        chai.assert.equal(brush.cssClass(), newClass);
+        brush.class(newClass);
+        chai.assert.equal(brush.class(), newClass);
       });
     });
 

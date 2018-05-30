@@ -1,19 +1,11 @@
 define(function (require) {
   describe("Component: Axis tests", function () {
     var d3 = require("d3");
-    var axisFunction = require("src/modules/component/axis");
-    var d3fixture = require("fixtures/fixture");
-    var remove = require("fixtures/remove");
-    var fixture;
+    var axisFunction = require("src/modules/component/axis/axis");
     var axis;
 
     beforeEach(function () {
-      fixture = d3fixture;
       axis = axisFunction();
-    });
-
-    afterEach(function () {
-      remove(fixture);
     });
 
     it("should return a function", function () {
@@ -62,7 +54,6 @@ define(function (require) {
       it("should return the tick object", function () {
         chai.assert.isObject(axis.tick());
         chai.assert.property(axis.tick(), "number");
-        chai.assert.property(axis.tick(), "text");
         chai.assert.property(axis.tick(), "values");
         chai.assert.property(axis.tick(), "format");
       });
@@ -74,21 +65,21 @@ define(function (require) {
       });
     });
 
-    describe("gClass API", function () {
+    describe("class API", function () {
       var gClass = "axis";
       var newClass = "x axis";
 
       beforeEach(function () {
-        axis.gClass(gClass);
+        axis.class(gClass);
       });
 
       it("should return the css class", function () {
-        chai.assert.equal(axis.gClass(), gClass);
+        chai.assert.equal(axis.class(), gClass);
       });
 
       it("should set the css class property", function () {
-        axis.gClass(newClass);
-        chai.assert.equal(axis.gClass(), newClass);
+        axis.class(newClass);
+        chai.assert.equal(axis.class(), newClass);
       });
     });
 
